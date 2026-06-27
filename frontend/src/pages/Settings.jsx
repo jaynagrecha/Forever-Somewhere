@@ -16,7 +16,7 @@ import {
 import { API_BASE } from '../api/client';
 
 export default function Settings() {
-  const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online } = useData();
+  const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect } = useData();
   const { toast } = useToast();
   const [annTitle, setAnnTitle] = useState('');
   const [annDate, setAnnDate] = useState('');
@@ -102,10 +102,16 @@ export default function Settings() {
           <Cloud className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Two-phone sync</h2>
           <p className="mt-2 text-sm text-muted">
-            Status: {online ? '● Backend connected' : '○ Offline / local only'}
+            Status:{' '}
+            {connecting ? '◌ Connecting to backend…' : online ? '● Backend connected' : '○ Offline / local only'}
           </p>
+          {!online && !connecting && (
+            <Button className="mt-4" variant="primary" onClick={() => reconnect()}>
+              Retry sync
+            </Button>
+          )}
           <p className="mt-2 text-xs text-muted">
-            Deploy backend (Railway/Fly) + frontend (Vercel). Full steps in <code className="text-accent-soft">docs/DEPLOY.md</code>.
+            Both phones use https://forever-somewhere-web.onrender.com — data syncs through Render.
           </p>
         </Card>
 

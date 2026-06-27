@@ -1,9 +1,22 @@
-const raw = import.meta.env.VITE_API_URL || '';
-const API_BASE = raw
-  ? raw.startsWith('http')
-    ? raw.replace(/\/$/, '')
-    : `https://${raw.replace(/\/$/, '')}`
-  : '';
+const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
+
+function buildApiBase() {
+  const raw = import.meta.env.VITE_API_URL || '';
+  if (raw) {
+    return raw.startsWith('http')
+      ? raw.replace(/\/$/, '')
+      : `https://${raw.replace(/\/$/, '')}`;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'forever-somewhere-web.onrender.com') {
+      return PRODUCTION_API;
+    }
+  }
+  return '';
+}
+
+const API_BASE = buildApiBase();
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -83,13 +96,28 @@ export const api = {
   importLocal: (data) => request('/api/import/local', { method: 'POST', body: JSON.stringify(data) }),
 };
 
-export async function isApiAvailable() {
-  try {
-    await api.health();
-    return true;
-  } catch {
-    return false;
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Ping API with retries — Render cold starts can take ~60s. */
+export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
+  if (!API_BASE) return false;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(`${API_BASE}/`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(String(res.status));
+      await res.json();
+      return true;
+    } catch {
+      if (attempt < maxAttempts) await sleep(intervalMs);
+    }
   }
+  return false;
 }
 
 export { API_BASE };

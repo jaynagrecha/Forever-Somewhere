@@ -22,13 +22,20 @@ const sections = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { stats, loading, online, insights } = useData();
+  const { stats, loading, connecting, online, reconnect, insights } = useData();
+
+  const syncLabel = connecting ? '◌ Connecting…' : online ? '● Synced' : '○ Offline mode';
 
   return (
     <PageShell title="Forever, Somewhere" subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
       {!loading && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs">{online ? '● Synced' : '○ Offline mode'}</span>
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs">{syncLabel}</span>
+          {!online && !connecting && (
+            <Button variant="ghost" size="sm" onClick={() => reconnect()}>
+              Retry sync
+            </Button>
+          )}
           <YearInReview />
           <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
             <Settings size={16} /> Settings

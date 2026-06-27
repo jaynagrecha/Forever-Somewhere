@@ -41,6 +41,7 @@ function normalizeMemory(m) {
 
 export function DataProvider({ children }) {
   const [online, setOnline] = useState(false);
+  const [connecting, setConnecting] = useState(true);
   const [loading, setLoading] = useState(true);
   const [memories, setMemories] = useState([]);
   const [tripPins, setTripPins] = useState([]);
@@ -97,20 +98,33 @@ export function DataProvider({ children }) {
     );
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      const available = await isApiAvailable();
-      setOnline(available);
+  const connect = useCallback(async (quick = false) => {
+    setConnecting(true);
+    const available = await isApiAvailable(quick ? 4 : 12, quick ? 3000 : 5000);
 
-      if (available && hasLocalData() && !wasMigrated()) {
-        await api.importLocal(buildImportPayload());
-        clearLocalAfterMigration();
-      }
+    if (available && hasLocalData() && !wasMigrated()) {
+      await api.importLocal(buildImportPayload());
+      clearLocalAfterMigration();
+    }
 
-      await refreshAll(available);
-      setLoading(false);
-    })();
+    setOnline(available);
+    await refreshAll(available);
+    setConnecting(false);
+    setLoading(false);
+    return available;
   }, [refreshAll]);
+
+  useEffect(() => {
+    connect();
+  }, [connect]);
+
+  useEffect(() => {
+    if (online || connecting) return undefined;
+    const timer = setInterval(() => {
+      connect(true);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [online, connecting, connect]);
 
   const persistLocal = useCallback((key, data) => writeLocal(key, data), []);
 
@@ -401,7 +415,9 @@ export function DataProvider({ children }) {
 
   const value = {
     loading,
+    connecting,
     online,
+    reconnect: connect,
     memories,
     tripPins,
     dreams,
