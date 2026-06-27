@@ -1,14 +1,12 @@
-# Forever Somewhere — single Render service (API + frontend, same origin)
+# Forever Somewhere — Docker deploy (frontend + API, same origin)
 
 services:
   - type: web
     name: forever-somewhere-api
-    runtime: python
+    runtime: docker
     plan: starter
-    rootDir: backend
-    pythonVersion: "3.12.8"
-    buildCommand: python3 ../scripts/render_build.py
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
