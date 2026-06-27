@@ -7,12 +7,12 @@ import App from './App';
 import { DataProvider } from './context/DataContext';
 import { ToastProvider } from './context/ToastContext';
 import { checkAndNotify } from './utils/notifications';
-import { API_BASE } from './api/client';
+import { getApiBase } from './api/client';
 
 function NotificationChecker() {
   useEffect(() => {
-    checkAndNotify(API_BASE);
-    const t = setInterval(() => checkAndNotify(API_BASE), 60 * 60 * 1000);
+    checkAndNotify(getApiBase());
+    const t = setInterval(() => checkAndNotify(getApiBase()), 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
   return null;
@@ -35,7 +35,7 @@ if ('serviceWorker' in navigator) {
       .register('/sw.js')
       .then((registration) => {
         const sendConfig = (worker) => {
-          worker?.postMessage({ type: 'CONFIG', apiBase: API_BASE });
+          worker?.postMessage({ type: 'CONFIG', apiBase: getApiBase() });
         };
         sendConfig(registration.active);
         registration.addEventListener('updatefound', () => {

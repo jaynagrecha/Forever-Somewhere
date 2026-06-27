@@ -13,7 +13,7 @@ import {
   subscribeToPush,
   requestNotificationPermission,
 } from '../utils/notifications';
-import { API_BASE } from '../api/client';
+import { getApiBase } from '../api/client';
 
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect } = useData();
@@ -43,7 +43,7 @@ export default function Settings() {
   }
 
   async function enableNotifications() {
-    const ok = await subscribeToPush(API_BASE);
+    const ok = await subscribeToPush(getApiBase());
     if (!ok) {
       const perm = await requestNotificationPermission();
       if (perm) {
@@ -110,8 +110,8 @@ export default function Settings() {
               Retry sync
             </Button>
           )}
-          <p className="mt-2 text-xs text-muted">
-            Both phones use https://forever-somewhere-web.onrender.com — data syncs through Render.
+          <p className="mt-2 text-xs text-muted font-mono break-all">
+            API: {getApiBase() || 'not configured'}
           </p>
         </Card>
 

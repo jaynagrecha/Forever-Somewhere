@@ -1,28 +1,40 @@
 const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
 
-function buildApiBase() {
+export function resolveApiBase() {
   const raw = import.meta.env.VITE_API_URL || '';
   if (raw) {
     return raw.startsWith('http')
       ? raw.replace(/\/$/, '')
       : `https://${raw.replace(/\/$/, '')}`;
   }
+  if (import.meta.env.PROD) {
+    return PRODUCTION_API;
+  }
+  return '';
+}
+
+/** Resolved at call time so runtime hostname is always available. */
+export function getApiBase() {
+  const base = resolveApiBase();
+  if (base) return base;
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host === 'forever-somewhere-web.onrender.com') {
+    if (host.endsWith('.onrender.com') || host === 'localhost') {
       return PRODUCTION_API;
     }
   }
   return '';
 }
 
-const API_BASE = buildApiBase();
-
 async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  const apiBase = getApiBase();
+  const headers = { ...options.headers };
+  const hasBody = options.body != null && options.method && options.method !== 'GET';
+  if (hasBody && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const res = await fetch(`${apiBase}${path}`, { ...options, headers });
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -32,7 +44,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  health: () => request('/'),
+  health: () => request('/api/health'),
   getStats: () => request('/api/stats'),
   getOnThisDay: () => request('/api/memories/on-this-day'),
   getInsights: () => request('/api/insights'),
@@ -48,7 +60,7 @@ export const api = {
   uploadPhoto: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${API_BASE}/api/memories/upload`, { method: 'POST', body: form });
+    const res = await fetch(`${getApiBase()}/api/memories/upload`, { method: 'POST', body: form });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -70,7 +82,7 @@ export const api = {
   uploadCapsuleMedia: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${API_BASE}/api/push/media`, { method: 'POST', body: form });
+    const res = await fetch(`${getApiBase()}/api/push/media`, { method: 'POST', body: form });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -102,16 +114,21 @@ function sleep(ms) {
 
 /** Ping API with retries — Render cold starts can take ~60s. */
 export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
-  if (!API_BASE) return false;
+  const apiBase = getApiBase();
+  if (!apiBase) return false;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch(`${API_BASE}/`, { signal: controller.signal });
+      const res = await fetch(`${apiBase}/api/health`, {
+        signal: controller.signal,
+        cache: 'no-store',
+      });
       clearTimeout(timer);
       if (!res.ok) throw new Error(String(res.status));
-      await res.json();
+      const data = await res.json();
+      if (data?.status !== 'ok') throw new Error('bad health payload');
       return true;
     } catch {
       if (attempt < maxAttempts) await sleep(intervalMs);
@@ -120,4 +137,5 @@ export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
   return false;
 }
 
-export { API_BASE };
+/** @deprecated use getApiBase() */
+export const API_BASE = PRODUCTION_API;

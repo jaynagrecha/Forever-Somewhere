@@ -41,10 +41,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: forever-somewhere-api
-          type: web
-          property: host
+        value: https://forever-somewhere-api.onrender.com
     routes:
       - type: rewrite
         source: /*

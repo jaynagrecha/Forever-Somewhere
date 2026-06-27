@@ -26,6 +26,9 @@ class Settings(BaseSettings):
         for local in ("http://localhost:5173", "http://127.0.0.1:5173"):
             if local not in origins:
                 origins.append(local)
+        # iOS Safari "Add to Home Screen" sends Origin: null for cross-origin fetch
+        if "null" not in origins:
+            origins.append("null")
         return origins
 
 
