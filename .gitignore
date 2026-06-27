@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.venv/
+backend/venv/
+backend/.venv/
+
+# Build output
+frontend/dist/
+
+# Environment & secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Database & uploads (local only — production uses Render disk)
+backend/*.db
+backend/uploads/
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log

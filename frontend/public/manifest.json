@@ -1,0 +1,17 @@
+{
+  "name": "Forever, Somewhere",
+  "short_name": "Forever",
+  "description": "Jay & Ikshika — memories, map, dreams, and letters",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#ff4d6d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
