@@ -99,7 +99,7 @@ export default function Settings() {
             Use this URL in Safari (not the old <code className="text-accent-soft">-web</code> link):
           </p>
           <p className="mt-2 text-xs font-mono break-all text-accent-soft">
-            https://forever-somewhere-api.onrender.com
+            https://forever-somewhere-web.onrender.com
           </p>
           <p className="mt-2 text-sm text-muted">Share → Add to Home Screen. Jay & Ikshika both use the same link.</p>
         </Card>
@@ -117,7 +117,7 @@ export default function Settings() {
             </Button>
           )}
           <p className="mt-2 text-xs text-muted font-mono break-all">
-            App URL: https://forever-somewhere-api.onrender.com
+            App URL: https://forever-somewhere-web.onrender.com
           </p>
         </Card>
 
