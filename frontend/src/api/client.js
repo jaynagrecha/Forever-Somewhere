@@ -1,4 +1,6 @@
-/** Same-origin in production (FastAPI serves the Vite build). Cross-origin only for local dev proxy. */
+/** Backend URL — web (static) talks to api (Docker). Api URL uses same-origin when it serves the build. */
+export const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
+
 export function resolveApiBase() {
   const raw = import.meta.env.VITE_API_URL || '';
   if (raw) {
@@ -6,10 +8,18 @@ export function resolveApiBase() {
       ? raw.replace(/\/$/, '')
       : `https://${raw.replace(/\/$/, '')}`;
   }
-  if (import.meta.env.PROD) {
-    return '';
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'forever-somewhere-web.onrender.com') {
+      return PRODUCTION_API;
+    }
+    if (host === 'forever-somewhere-api.onrender.com') {
+      return '';
+    }
   }
-  return '';
+
+  return import.meta.env.PROD ? PRODUCTION_API : '';
 }
 
 export function getApiBase() {
@@ -25,7 +35,7 @@ async function request(path, options = {}) {
   }
 
   const url = apiBase ? `${apiBase}${path}` : path;
-  const res = await fetch(url, { ...options, headers, cache: 'no-store' });
+  const res = await fetch(url, { ...options, headers, cache: 'no-store', mode: 'cors' });
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -51,9 +61,8 @@ export const api = {
   uploadPhoto: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const base = getApiBase();
-    const url = base ? `${base}/api/memories/upload` : '/api/memories/upload';
-    const res = await fetch(url, { method: 'POST', body: form });
+    const url = `${getApiBase()}/api/memories/upload`;
+    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors' });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -75,9 +84,8 @@ export const api = {
   uploadCapsuleMedia: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const base = getApiBase();
-    const url = base ? `${base}/api/push/media` : '/api/push/media';
-    const res = await fetch(url, { method: 'POST', body: form });
+    const url = `${getApiBase()}/api/push/media`;
+    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors' });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -111,10 +119,10 @@ async function ping(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    const res = await fetch(url, { signal: controller.signal, cache: 'no-store', mode: 'cors' });
     if (!res.ok) return false;
     const ct = res.headers.get('content-type') || '';
-    if (!ct.includes('json')) return res.ok;
+    if (!ct.includes('json')) return false;
     const data = await res.json();
     return data?.status === 'ok';
   } finally {
@@ -125,24 +133,41 @@ async function ping(url) {
 /** Ping API with retries — Render cold starts can take ~60s. */
 export async function isApiAvailable(maxAttempts = 8, intervalMs = 4000) {
   const base = getApiBase();
-  const urls = base
-    ? [`${base}/api/health`, `${base}/api/memories`]
-    : ['/api/health', '/api/memories'];
+  if (!base) {
+    const urls = ['/api/health', '/api/memories'];
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      for (const url of urls) {
+        try {
+          if (url.endsWith('/api/memories')) {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) return true;
+          } else if (await ping(url.startsWith('http') ? url : `${window.location.origin}${url}`)) {
+            return true;
+          }
+        } catch {
+          /* retry */
+        }
+      }
+      if (attempt < maxAttempts) await sleep(intervalMs);
+    }
+    return false;
+  }
 
+  const urls = [`${base}/api/health`, `${base}/api/memories`];
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     for (const url of urls) {
       try {
         if (url.endsWith('/api/memories')) {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 15000);
-          const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+          const res = await fetch(url, { signal: controller.signal, cache: 'no-store', mode: 'cors' });
           clearTimeout(timer);
           if (res.ok) return true;
         } else if (await ping(url)) {
           return true;
         }
       } catch {
-        /* try next */
+        /* retry */
       }
     }
     if (attempt < maxAttempts) await sleep(intervalMs);

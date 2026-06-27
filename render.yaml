@@ -1,9 +1,10 @@
-# Forever Somewhere — full app on forever-somewhere-web (frontend + API, same origin)
+# Forever Somewhere
+# - forever-somewhere-web  → static frontend (your app URL)
+# - forever-somewhere-api  → Docker backend (API + database)
 
 services:
-  # Primary app URL — use this on phones
   - type: web
-    name: forever-somewhere-web
+    name: forever-somewhere-api
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
@@ -15,7 +16,7 @@ services:
       - key: UPLOAD_DIR
         value: /data/uploads
       - key: CORS_ORIGINS
-        value: http://localhost:5173,forever-somewhere-api.onrender.com
+        value: forever-somewhere-web.onrender.com,http://localhost:5173
       - key: VAPID_PUBLIC_KEY
         value: ""
       - key: VAPID_PRIVATE_KEY
@@ -27,14 +28,16 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  # Old API-only URL → redirect to web
   - type: web
-    name: forever-somewhere-api
+    name: forever-somewhere-web
     runtime: static
-    rootDir: redirect-api
-    staticPublishPath: .
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://forever-somewhere-api.onrender.com
     routes:
-      - type: redirect
+      - type: rewrite
         source: /*
-        destination: https://forever-somewhere-web.onrender.com/:splat
-        status: 301
+        destination: /index.html

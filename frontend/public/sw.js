@@ -1,4 +1,11 @@
-const CACHE = 'forever-somewhere-v6';
+const CACHE = 'forever-somewhere-v7';
+let API_BASE = 'https://forever-somewhere-api.onrender.com';
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CONFIG' && typeof event.data.apiBase === 'string') {
+    API_BASE = event.data.apiBase || API_BASE;
+  }
+});
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
