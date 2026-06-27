@@ -1,4 +1,4 @@
-# Forever Somewhere — Docker deploy (frontend + API, same origin)
+# Forever Somewhere — Docker API + redirect old web URL to API
 
 services:
   - type: web
@@ -14,7 +14,7 @@ services:
       - key: UPLOAD_DIR
         value: /data/uploads
       - key: CORS_ORIGINS
-        value: http://localhost:5173
+        value: http://localhost:5173,forever-somewhere-web.onrender.com
       - key: VAPID_PUBLIC_KEY
         value: ""
       - key: VAPID_PRIVATE_KEY
@@ -25,3 +25,15 @@ services:
       name: forever-data
       mountPath: /data
       sizeGB: 1
+
+  # Old bookmark URL → sends everyone to the real app (API hosts frontend too)
+  - type: web
+    name: forever-somewhere-web
+    runtime: static
+    rootDir: redirect
+    staticPublishPath: .
+    routes:
+      - type: redirect
+        source: /*
+        destination: https://forever-somewhere-api.onrender.com/:splat
+        status: 301

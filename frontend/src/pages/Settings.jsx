@@ -95,7 +95,13 @@ export default function Settings() {
         <Card>
           <Smartphone className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Install on phone</h2>
-          <p className="mt-2 text-sm text-muted">Browser → Share → Add to Home Screen (iOS/Android).</p>
+          <p className="mt-2 text-sm text-muted">
+            Use this URL in Safari (not the old <code className="text-accent-soft">-web</code> link):
+          </p>
+          <p className="mt-2 text-xs font-mono break-all text-accent-soft">
+            https://forever-somewhere-api.onrender.com
+          </p>
+          <p className="mt-2 text-sm text-muted">Share → Add to Home Screen. Jay & Ikshika both use the same link.</p>
         </Card>
 
         <Card>
