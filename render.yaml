@@ -7,6 +7,7 @@ services:
     runtime: python
     plan: starter
     rootDir: backend
+    pythonVersion: "3.12.8"
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
