@@ -15,7 +15,15 @@ class Settings(BaseSettings):
     vapid_claims_email: str = "mailto:jay@forever-somewhere.local"
 
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        origins = []
+        for o in self.cors_origins.split(","):
+            o = o.strip()
+            if not o:
+                continue
+            if not o.startswith("http"):
+                o = f"https://{o}"
+            origins.append(o)
+        return origins
 
 
 settings = Settings()
