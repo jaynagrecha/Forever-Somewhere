@@ -23,6 +23,9 @@ class Settings(BaseSettings):
             if not o.startswith("http"):
                 o = f"https://{o}"
             origins.append(o)
+        for local in ("http://localhost:5173", "http://127.0.0.1:5173"):
+            if local not in origins:
+                origins.append(local)
         return origins
 
 

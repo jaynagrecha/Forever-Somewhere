@@ -1,5 +1,11 @@
 const CACHE = 'forever-somewhere-v2';
-const API_BASE = self.location.origin.includes('localhost') ? '' : '';
+let API_BASE = self.location.origin.includes('localhost') ? '' : '';
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CONFIG' && typeof event.data.apiBase === 'string') {
+    API_BASE = event.data.apiBase;
+  }
+});
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.json'])));

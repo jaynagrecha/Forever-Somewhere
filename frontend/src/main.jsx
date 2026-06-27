@@ -31,6 +31,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        const sendConfig = (worker) => {
+          worker?.postMessage({ type: 'CONFIG', apiBase: API_BASE });
+        };
+        sendConfig(registration.active);
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          worker?.addEventListener('statechange', () => {
+            if (worker.state === 'activated') sendConfig(worker);
+          });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          sendConfig(navigator.serviceWorker.controller);
+        });
+      })
+      .catch(() => {});
   });
 }

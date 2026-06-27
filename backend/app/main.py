@@ -38,5 +38,6 @@ app.include_router(prompts.router)
 
 
 @app.get("/")
+@app.head("/")
 def home() -> dict[str, str]:
     return {"message": "Forever Somewhere API running"}
