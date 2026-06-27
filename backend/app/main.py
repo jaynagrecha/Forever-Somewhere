@@ -2,13 +2,14 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.migrate import run_migrations
 from app.routers import features, memories, misc, prompts, push, trip_pins
-from app.static_files import mount_frontend
+from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
 run_migrations()
 Base.metadata.create_all(bind=engine)
@@ -41,7 +42,16 @@ app.include_router(prompts.router)
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "frontend": frontend_available()}
+
+
+@app.get("/")
+@app.head("/")
+def root():
+    """Render health checks hit GET / — must always return 2xx."""
+    if frontend_available():
+        return FileResponse(INDEX_HTML)
+    return {"status": "ok", "message": "Forever Somewhere API running"}
 
 
 mount_frontend(app)

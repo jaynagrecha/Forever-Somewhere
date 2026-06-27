@@ -7,17 +7,9 @@ services:
     plan: starter
     rootDir: backend
     pythonVersion: "3.12.8"
-    buildCommand: >-
-      pip install --upgrade pip &&
-      pip install -r requirements.txt &&
-      cd ../frontend &&
-      npm install &&
-      VITE_API_URL= npm run build &&
-      rm -rf ../backend/static &&
-      mkdir -p ../backend/static &&
-      cp -r dist/* ../backend/static/
+    buildCommand: bash ../scripts/render-build.sh
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /
     envVars:
       - key: DATABASE_URL
         value: sqlite:////data/forever_somewhere.db
