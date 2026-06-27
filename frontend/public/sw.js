@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v4';
+const CACHE = 'forever-somewhere-v5';
 let API_BASE = self.location.origin.includes('localhost') ? '' : '';
 
 self.addEventListener('message', (event) => {

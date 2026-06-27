@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.migrate import run_migrations
 from app.routers import features, memories, misc, prompts, push, trip_pins
+from app.static_files import mount_frontend
 
 run_migrations()
 Base.metadata.create_all(bind=engine)
@@ -18,7 +19,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list(),
     allow_origin_regex=r"https://.*\.onrender\.com",
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -43,7 +44,4 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/")
-@app.head("/")
-def home() -> dict[str, str]:
-    return {"message": "Forever Somewhere API running"}
+mount_frontend(app)

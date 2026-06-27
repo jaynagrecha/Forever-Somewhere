@@ -1,26 +1,30 @@
-# Forever Somewhere — full stack on Render (API + static frontend)
+# Forever Somewhere — single Render service (API + frontend, same origin)
 
 services:
-  # Backend API
   - type: web
     name: forever-somewhere-api
     runtime: python
     plan: starter
     rootDir: backend
     pythonVersion: "3.12.8"
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    buildCommand: >-
+      pip install --upgrade pip &&
+      pip install -r requirements.txt &&
+      cd ../frontend &&
+      npm install &&
+      VITE_API_URL= npm run build &&
+      rm -rf ../backend/static &&
+      mkdir -p ../backend/static &&
+      cp -r dist/* ../backend/static/
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         value: sqlite:////data/forever_somewhere.db
       - key: UPLOAD_DIR
         value: /data/uploads
       - key: CORS_ORIGINS
-        fromService:
-          name: forever-somewhere-web
-          type: web
-          property: host
+        value: http://localhost:5173
       - key: VAPID_PUBLIC_KEY
         value: ""
       - key: VAPID_PRIVATE_KEY
@@ -31,18 +35,3 @@ services:
       name: forever-data
       mountPath: /data
       sizeGB: 1
-
-  # Frontend (static site)
-  - type: web
-    name: forever-somewhere-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://forever-somewhere-api.onrender.com
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html

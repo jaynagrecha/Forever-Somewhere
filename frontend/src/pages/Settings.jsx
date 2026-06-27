@@ -111,7 +111,7 @@ export default function Settings() {
             </Button>
           )}
           <p className="mt-2 text-xs text-muted font-mono break-all">
-            API: {getApiBase() || 'not configured'}
+            App URL: https://forever-somewhere-api.onrender.com
           </p>
         </Card>
 

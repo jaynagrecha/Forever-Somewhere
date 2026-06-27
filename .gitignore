@@ -6,6 +6,7 @@ backend/.venv/
 
 # Build output
 frontend/dist/
+backend/static/
 
 # Environment & secrets — NEVER commit these
 .env

@@ -1,5 +1,4 @@
-const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
-
+/** Same-origin in production (FastAPI serves the Vite build). Cross-origin only for local dev proxy. */
 export function resolveApiBase() {
   const raw = import.meta.env.VITE_API_URL || '';
   if (raw) {
@@ -8,22 +7,13 @@ export function resolveApiBase() {
       : `https://${raw.replace(/\/$/, '')}`;
   }
   if (import.meta.env.PROD) {
-    return PRODUCTION_API;
+    return '';
   }
   return '';
 }
 
-/** Resolved at call time so runtime hostname is always available. */
 export function getApiBase() {
-  const base = resolveApiBase();
-  if (base) return base;
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host.endsWith('.onrender.com') || host === 'localhost') {
-      return PRODUCTION_API;
-    }
-  }
-  return '';
+  return resolveApiBase();
 }
 
 async function request(path, options = {}) {
@@ -34,7 +24,8 @@ async function request(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${apiBase}${path}`, { ...options, headers });
+  const url = apiBase ? `${apiBase}${path}` : path;
+  const res = await fetch(url, { ...options, headers });
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -60,7 +51,9 @@ export const api = {
   uploadPhoto: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${getApiBase()}/api/memories/upload`, { method: 'POST', body: form });
+    const base = getApiBase();
+    const url = base ? `${base}/api/memories/upload` : '/api/memories/upload';
+    const res = await fetch(url, { method: 'POST', body: form });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -82,7 +75,9 @@ export const api = {
   uploadCapsuleMedia: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${getApiBase()}/api/push/media`, { method: 'POST', body: form });
+    const base = getApiBase();
+    const url = base ? `${base}/api/push/media` : '/api/push/media';
+    const res = await fetch(url, { method: 'POST', body: form });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -112,19 +107,14 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Ping API with retries — Render cold starts can take ~60s. */
 export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
-  const apiBase = getApiBase();
-  if (!apiBase) return false;
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch(`${apiBase}/api/health`, {
-        signal: controller.signal,
-        cache: 'no-store',
-      });
+      const base = getApiBase();
+      const url = base ? `${base}/api/health` : '/api/health';
+      const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
       clearTimeout(timer);
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
@@ -137,5 +127,4 @@ export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
   return false;
 }
 
-/** @deprecated use getApiBase() */
-export const API_BASE = PRODUCTION_API;
+export const API_BASE = getApiBase();
