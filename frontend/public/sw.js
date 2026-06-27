@@ -1,14 +1,9 @@
-const CACHE = 'forever-somewhere-v5';
-let API_BASE = self.location.origin.includes('localhost') ? '' : '';
-
-self.addEventListener('message', (event) => {
-  if (event.data?.type === 'CONFIG' && typeof event.data.apiBase === 'string') {
-    API_BASE = event.data.apiBase;
-  }
-});
+const CACHE = 'forever-somewhere-v6';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.json'])));
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(['/manifest.json', '/favicon.svg']).catch(() => {}))
+  );
   self.skipWaiting();
 });
 
@@ -17,20 +12,29 @@ self.addEventListener('activate', (e) => {
     caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
-  checkNotifications();
 });
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('/api/')) return;
+  const { pathname } = new URL(e.request.url);
+  if (pathname.startsWith('/api/') || pathname.startsWith('/uploads/')) return;
+
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        const ct = res.headers.get('content-type') || '';
+        if (res.ok && ct.includes('text/html')) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match('/index.html')))
+      .catch(() =>
+        caches.match(e.request).then((cached) => {
+          if (cached) return cached;
+          return caches.match('/index.html');
+        })
+      )
   );
 });
 
@@ -66,23 +70,3 @@ self.addEventListener('notificationclick', (e) => {
     })
   );
 });
-
-async function checkNotifications() {
-  try {
-    const res = await fetch(`${API_BASE}/api/notifications/feed`);
-    if (!res.ok) return;
-    const items = await res.json();
-    for (const item of items.slice(0, 3)) {
-      await self.registration.showNotification(item.title, {
-        body: item.body,
-        tag: item.tag,
-        icon: '/favicon.svg',
-        data: { route: item.route },
-      });
-    }
-  } catch {
-    /* offline */
-  }
-}
-
-setInterval(checkNotifications, 12 * 60 * 60 * 1000);

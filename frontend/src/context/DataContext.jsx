@@ -100,26 +100,31 @@ export function DataProvider({ children }) {
 
   const connect = useCallback(async (quick = false) => {
     setConnecting(true);
-    const available = await isApiAvailable(quick ? 4 : 12, quick ? 3000 : 5000);
+    let available = false;
+    try {
+      available = await isApiAvailable(quick ? 3 : 8, quick ? 3000 : 4000);
+      setOnline(available);
 
-    setOnline(available);
-
-    if (available) {
-      try {
-        if (hasLocalData() && !wasMigrated()) {
-          await api.importLocal(buildImportPayload());
-          clearLocalAfterMigration();
+      if (available) {
+        try {
+          if (hasLocalData() && !wasMigrated()) {
+            await api.importLocal(buildImportPayload());
+            clearLocalAfterMigration();
+          }
+        } catch {
+          /* migration optional */
         }
-      } catch {
-        /* migration optional */
+        await refreshAll(true);
+      } else {
+        await refreshAll(false);
       }
-      await refreshAll(true);
-    } else {
+    } catch {
+      setOnline(false);
       await refreshAll(false);
+    } finally {
+      setConnecting(false);
+      setLoading(false);
     }
-
-    setConnecting(false);
-    setLoading(false);
     return available;
   }, [refreshAll]);
 

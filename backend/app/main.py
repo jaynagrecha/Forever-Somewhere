@@ -42,7 +42,10 @@ app.include_router(prompts.router)
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "frontend": frontend_available()}
+    return {
+        "status": "ok",
+        "frontend": "ready" if frontend_available() else "missing",
+    }
 
 
 @app.get("/")

@@ -25,7 +25,7 @@ async function request(path, options = {}) {
   }
 
   const url = apiBase ? `${apiBase}${path}` : path;
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers, cache: 'no-store' });
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -107,22 +107,45 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function isApiAvailable(maxAttempts = 12, intervalMs = 5000) {
+async function ping(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    if (!res.ok) return false;
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('json')) return res.ok;
+    const data = await res.json();
+    return data?.status === 'ok';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Ping API with retries — Render cold starts can take ~60s. */
+export async function isApiAvailable(maxAttempts = 8, intervalMs = 4000) {
+  const base = getApiBase();
+  const urls = base
+    ? [`${base}/api/health`, `${base}/api/memories`]
+    : ['/api/health', '/api/memories'];
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 20000);
-      const base = getApiBase();
-      const url = base ? `${base}/api/health` : '/api/health';
-      const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      if (data?.status !== 'ok') throw new Error('bad health payload');
-      return true;
-    } catch {
-      if (attempt < maxAttempts) await sleep(intervalMs);
+    for (const url of urls) {
+      try {
+        if (url.endsWith('/api/memories')) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 15000);
+          const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+          clearTimeout(timer);
+          if (res.ok) return true;
+        } else if (await ping(url)) {
+          return true;
+        }
+      } catch {
+        /* try next */
+      }
     }
+    if (attempt < maxAttempts) await sleep(intervalMs);
   }
   return false;
 }
