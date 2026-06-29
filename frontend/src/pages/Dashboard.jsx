@@ -7,6 +7,9 @@ import {
 import ActivityFeed from '../components/ActivityFeed';
 import DailyQuestion from '../components/DailyQuestion';
 import RandomMemory from '../components/RandomMemory';
+import ThinkingOfYou from '../components/ThinkingOfYou';
+import RomanceWidgets from '../components/RomanceWidgets';
+import OpeningNamesAnimation from '../components/OpeningNamesAnimation';
 import { useLocale } from '../context/LocaleContext';
 import PageShell from '../components/Layout/PageShell';
 import Card from '../components/ui/Card';
@@ -32,6 +35,7 @@ export default function Dashboard() {
   const { stats, loading, connecting, online, reconnect, insights } = useData();
   const { t } = useLocale();
   const [extra, setExtra] = useState(null);
+  const [showOpening, setShowOpening] = useState(true);
 
   useEffect(() => {
     if (online) {
@@ -42,7 +46,9 @@ export default function Dashboard() {
   const syncLabel = connecting ? '◌ Connecting…' : online ? `● ${t('synced')}` : `○ ${t('offline')}`;
 
   return (
-    <PageShell title="Forever, Somewhere" subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
+    <>
+      {showOpening && <OpeningNamesAnimation onDone={() => setShowOpening(false)} />}
+      <PageShell title="Forever, Somewhere" subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
       {!loading && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs">{syncLabel}</span>
@@ -59,6 +65,8 @@ export default function Dashboard() {
       )}
 
       <GlobalSearch />
+      <RomanceWidgets />
+      <ThinkingOfYou />
       <QuickActions />
       <DailyQuestion />
       <ActivityFeed />
@@ -114,6 +122,7 @@ export default function Dashboard() {
         ))}
       </div>
     </PageShell>
+    </>
   );
 }
 

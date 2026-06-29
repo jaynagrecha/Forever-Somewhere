@@ -23,7 +23,7 @@ export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
   const { toast } = useToast();
   const { inviteCode, displayName, logout } = useAuth();
-  const { theme, toggle, isDark } = useTheme();
+  const { theme, setTheme, seasonalThemes } = useTheme();
   const { locale, setLocale } = useLocale();
   const [annTitle, setAnnTitle] = useState('');
   const [annDate, setAnnDate] = useState('');
@@ -138,12 +138,21 @@ export default function Settings() {
         </Card>
 
         <Card>
-          {isDark ? <Moon className="mb-3 text-accent-soft" size={24} /> : <Sun className="mb-3 text-accent-soft" size={24} />}
+          {theme === 'light' ? <Sun className="mb-3 text-accent-soft" size={24} /> : <Moon className="mb-3 text-accent-soft" size={24} />}
           <h2 className="font-display text-xl">Theme</h2>
-          <p className="mt-2 text-sm text-muted">Currently: {theme}</p>
-          <Button className="mt-4" variant="secondary" onClick={toggle}>
-            Switch to {isDark ? 'light' : 'dark'} mode
-          </Button>
+          <p className="mt-2 text-sm text-muted">Midnight, daylight, or seasonal romantic palettes.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {seasonalThemes.map((t) => (
+              <Button
+                key={t.id}
+                size="sm"
+                variant={theme === t.id ? 'primary' : 'secondary'}
+                onClick={() => setTheme(t.id)}
+              >
+                {t.emoji} {t.label}
+              </Button>
+            ))}
+          </div>
         </Card>
 
         <Card>

@@ -10,6 +10,7 @@
   --color-gold: #facc15;
   --color-muted: rgba(255, 255, 255, 0.65);
   --font-display: "Georgia", "Times New Roman", serif;
+  --font-handwritten: "Caveat", "Segoe Script", cursive;
   --font-body: "Segoe UI", system-ui, sans-serif;
 }
 
@@ -95,4 +96,100 @@ html[data-theme="light"] [class*="border-white"] {
 
 html[data-theme="light"] [class*="bg-white/"] {
   background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Romantic polish */
+.handwritten-date {
+  font-family: var(--font-handwritten);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.name-glow {
+  text-shadow: 0 0 24px rgba(255, 77, 109, 0.45), 0 0 48px rgba(255, 143, 163, 0.2);
+}
+
+.polaroid-card {
+  background: linear-gradient(180deg, #faf8f5 0%, #f0ebe3 100%);
+  border-radius: 4px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.25),
+    0 12px 28px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: 12px 12px 0;
+}
+
+.polaroid-gold {
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.25),
+    0 12px 28px rgba(250, 204, 21, 0.15),
+    inset 0 0 0 2px rgba(250, 204, 21, 0.35);
+}
+
+.polaroid-photo {
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+.polaroid-caption {
+  min-height: 80px;
+}
+
+.capsule-wall {
+  perspective: 800px;
+}
+
+.capsule-jar {
+  animation: slide-up 0.5s ease-out both;
+}
+
+.capsule-jar-ready {
+  animation: capsule-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes capsule-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.2)); }
+  50% { filter: drop-shadow(0 0 16px rgba(250, 204, 21, 0.45)); }
+}
+
+.capsule-wall-empty {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 48px
+  ),
+  repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.03) 0,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+}
+
+.deck-card {
+  transform-style: preserve-3d;
+}
+
+.deck-flipped {
+  animation: deck-reveal 0.5s ease-out;
+}
+
+@keyframes deck-reveal {
+  from { opacity: 0; transform: rotateY(-90deg) scale(0.95); }
+  to { opacity: 1; transform: rotateY(0) scale(1); }
+}
+
+html[data-theme="valentine"] body {
+  background: linear-gradient(180deg, var(--color-ink), var(--color-surface));
+}
+
+html[data-theme="monsoon"] body {
+  background: linear-gradient(180deg, var(--color-ink), #0a2040);
+}
+
+html[data-theme="diwali"] body {
+  background: linear-gradient(180deg, var(--color-ink), #1f1505);
 }

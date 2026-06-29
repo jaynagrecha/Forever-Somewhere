@@ -6,6 +6,7 @@ import Button from './ui/Button';
 import { api } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { resolveMediaUrl } from '../utils/media';
+import { romanceUnlock } from '../utils/romanceSounds';
 
 export default function RandomMemory() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function RandomMemory() {
     setLoading(true);
     try {
       setMemory(await api.getRandomMemory());
+      romanceUnlock();
     } catch {
       toast('Add a memory first', 'error');
       setMemory(null);

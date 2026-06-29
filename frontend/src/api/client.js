@@ -152,6 +152,15 @@ export const api = {
   getStory: () => request('/api/story'),
   getExtraInsights: () => request('/api/insights/extra'),
   getRandomMemory: () => request('/api/memories/random'),
+
+  sendThinkingOfYou: (data) =>
+    request('/api/romance/thinking-of-you', { method: 'POST', body: JSON.stringify(data) }),
+  getLetterPrompts: (mood = '') =>
+    request(mood ? `/api/romance/letter-prompts?mood=${encodeURIComponent(mood)}` : '/api/romance/letter-prompts'),
+  getDateDeck: () => request('/api/romance/date-deck'),
+  getFirsts: () => request('/api/romance/firsts'),
+  getTogetherStats: () => request('/api/romance/together'),
+  getRecentPings: () => request('/api/romance/recent-pings'),
   restoreBackup: async (file) => {
     const text = await file.text();
     const data = JSON.parse(text);

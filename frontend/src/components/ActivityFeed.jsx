@@ -5,6 +5,7 @@ import Card from './ui/Card';
 import { api } from '../api/client';
 
 const KIND_LABEL = {
+  ping: '💕 Ping',
   memory: '📸 Memory',
   dream: '✨ Dream',
   love_note: '💌 Note',

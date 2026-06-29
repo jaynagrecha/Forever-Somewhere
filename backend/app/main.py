@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.migrate import run_migrations
-from app.routers import couples, extras, features, memories, misc, prompts, push, trip_pins
+from app.routers import couples, extras, features, memories, misc, prompts, push, romance, trip_pins
 from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
 Base.metadata.create_all(bind=engine)
@@ -40,6 +40,7 @@ app.include_router(features.router)
 app.include_router(push.router)
 app.include_router(extras.router)
 app.include_router(prompts.router)
+app.include_router(romance.router)
 
 
 @app.get("/api/health")

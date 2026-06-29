@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import JSZip from 'jszip';
-import { Shuffle, Plus, Download, Music, Filter } from 'lucide-react';
+import { Shuffle, Plus, Filter } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import LocationSearch from '../components/LocationSearch';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { Input, TextArea, Select } from '../components/ui/Input';
-import Badge from '../components/ui/Badge';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
@@ -15,6 +14,7 @@ import { api } from '../api/client';
 import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
 import { MEMORY_TAGS } from '../utils/constants';
+import PolaroidMemory from '../components/PolaroidMemory';
 
 const emptyForm = {
   title: '',
@@ -268,47 +268,18 @@ export default function Moments() {
         </Button>
       </div>
 
-      <div className="relative border-l-2 border-white/15 pl-8 md:pl-12">
+      <div className="mx-auto max-w-lg">
         {sorted.map((m) => (
-          <article key={m.id} className="relative mb-10 animate-fade-in">
-            <span className={`absolute -left-[2.55rem] top-6 flex h-5 w-5 items-center justify-center rounded-full md:-left-[3.35rem] md:h-7 md:w-7 ${m.isMilestone || m.is_milestone ? 'bg-gold text-ink shadow-lg shadow-gold/40' : 'bg-white'}`}>
-              {(m.isMilestone || m.is_milestone) && '★'}
-            </span>
-            <div className={`rounded-3xl border p-6 md:p-8 ${m.isMilestone || m.is_milestone ? 'border-gold/30 bg-gradient-to-br from-[#2a1f08] to-[#3b2f10]' : 'border-white/5 bg-gradient-to-br from-card to-card-hover'}`}>
-              {(m.tags || []).map((t) => <span key={t} className="mr-2 inline-block"><Badge tone="accent">{t}</Badge></span>)}
-              {(m.isMilestone || m.is_milestone) && <Badge tone="gold">{m.milestoneType || m.milestone_type}</Badge>}
-              <p className="mt-2 text-sm text-muted">{m.date || 'No date'}</p>
-              <h2 className="mt-1 font-display text-2xl">{m.title}</h2>
-              <p className="mt-2 text-muted">📍 {m.location?.split(',')[0]}</p>
-              {m.playlist_url && (
-                <a href={m.playlist_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-accent-soft hover:underline">
-                  <Music size={14} /> Our soundtrack
-                </a>
-              )}
-              {m.notes && <p className="mt-3 text-muted">{m.notes}</p>}
-              {m.photos?.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {m.photos.slice(0, 4).map((p) => (
-                    <img key={p.id} src={photoSrc(p)} alt="" className="h-24 w-32 cursor-pointer rounded-xl object-cover" onClick={() => setPreview(p)} />
-                  ))}
-                </div>
-              )}
-              {(m.before_photo || m.after_photo) && (
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {m.before_photo && <img src={photoSrc(m.before_photo)} alt="Before" className="rounded-xl object-cover" />}
-                  {m.after_photo && <img src={photoSrc(m.after_photo)} alt="After" className="rounded-xl object-cover" />}
-                </div>
-              )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => openEdit(m)}>Edit</Button>
-                <Button size="sm" variant="secondary" onClick={() => shareMemoryCard(m)}>Share</Button>
-                <Button size="sm" variant="danger" onClick={() => memoryOps.remove(m.id)}>Delete</Button>
-                {m.photos?.length > 0 && (
-                  <Button size="sm" onClick={() => downloadZip(m)}><Download size={16} /> ZIP</Button>
-                )}
-              </div>
-            </div>
-          </article>
+          <PolaroidMemory
+            key={m.id}
+            memory={m}
+            photoSrc={photoSrc}
+            onEdit={openEdit}
+            onShare={shareMemoryCard}
+            onDelete={(id) => memoryOps.remove(id)}
+            onDownload={downloadZip}
+            onPreview={setPreview}
+          />
         ))}
       </div>
 

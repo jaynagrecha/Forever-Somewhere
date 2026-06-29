@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lock, Unlock, Heart, Plus, Clock, StickyNote, Mic, Video } from 'lucide-react';
+import { Lock, Unlock, Heart, Plus, StickyNote, Mic, Video, Feather } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import CapsuleWall from '../components/CapsuleWall';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
+import { useAuthorOptions } from '../context/AuthContext';
 import { MOOD_OPTIONS } from '../utils/constants';
 import { api } from '../api/client';
 import { resolveMediaUrl } from '../utils/media';
+import { romanceUnlock } from '../utils/romanceSounds';
 
 const emptyCapsule = { title: '', content: '', unlock_date: '', author: 'Us', media_url: '', media_type: '' };
 const emptyNote = { content: '', author: 'Us', mood: '', voice_url: '', letter_template: '', reveal_date: '' };
@@ -21,7 +23,7 @@ const LETTER_TEMPLATES = {
   '': 'Free write',
   'open-when-sad': 'Open when you feel sad…',
   'open-when-miss': 'Open when you miss me…',
-  'gratitude': 'Three things I love about you…',
+  gratitude: 'Three things I love about you…',
   'future-us': 'Dear future us…',
 };
 
@@ -37,6 +39,15 @@ export default function Forever() {
   const [capsuleForm, setCapsuleForm] = useState(emptyCapsule);
   const [noteForm, setNoteForm] = useState(emptyNote);
   const [opened, setOpened] = useState(null);
+  const [moodPrompts, setMoodPrompts] = useState([]);
+
+  useEffect(() => {
+    if (!noteForm.mood) {
+      setMoodPrompts([]);
+      return;
+    }
+    api.getLetterPrompts(noteForm.mood).then((d) => setMoodPrompts(d.prompts || [])).catch(() => setMoodPrompts([]));
+  }, [noteForm.mood]);
 
   async function saveCapsule() {
     if (!capsuleForm.title.trim() || !capsuleForm.unlock_date) {
@@ -78,6 +89,14 @@ export default function Forever() {
       ...f,
       letter_template: key,
       content: starters[key] || f.content,
+    }));
+  }
+
+  function applyMoodPrompt(prompt) {
+    setNoteForm((f) => ({
+      ...f,
+      content: prompt.starter || prompt.prompt,
+      letter_template: '',
     }));
   }
 
@@ -125,6 +144,7 @@ export default function Forever() {
     if (c.is_locked) return toast(`Unlocks in ${c.days_until_unlock} days`, 'error');
     try {
       const result = await capsuleOps.open(c.id);
+      romanceUnlock();
       setOpened(result);
       toast('Capsule opened', 'success');
     } catch (e) {
@@ -139,7 +159,7 @@ export default function Forever() {
   return (
     <PageShell title="💌 Forever" subtitle="Sealed capsules for the future — and love notes for right now.">
       <SectionHint>
-        <strong>Capsules</strong> unlock on a date. <strong>Love notes</strong> are instant — a quick "thinking of you" any day.
+        <strong>Capsules</strong> unlock on a date. <strong>Love notes</strong> are instant — pick a mood for letter prompts.
       </SectionHint>
 
       <div className="mb-8 flex gap-2">
@@ -157,43 +177,13 @@ export default function Forever() {
             <Plus size={18} /> Seal a letter
           </Button>
 
-          {locked.length > 0 && (
-            <section className="mb-10">
-              <h2 className="mb-4 flex items-center gap-2 font-display text-xl"><Lock size={20} /> Sealed ({locked.length})</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {locked.map((c) => (
-                  <Card key={c.id} className="border-accent/20">
-                    <Badge tone="accent">Sealed</Badge>
-                    <h3 className="mt-3 font-display text-xl">{c.title}</h3>
-                    <p className="mt-2 flex items-center gap-2 text-sm text-muted">
-                      <Clock size={14} /> Unlocks {c.unlock_date}
-                      {c.days_until_unlock != null && ` · ${c.days_until_unlock} days left`}
-                    </p>
-                    <Button size="sm" variant="danger" className="mt-3" onClick={() => capsuleOps.remove(c.id)}>
-                      Delete
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {ready.length > 0 && (
-            <section className="mb-10">
-              <h2 className="mb-4 flex items-center gap-2 font-display text-xl text-gold"><Unlock size={20} /> Ready ({ready.length})</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {ready.map((c) => (
-                  <Card key={c.id} highlight>
-                    <Badge tone="gold">Ready!</Badge>
-                    <h3 className="mt-3 font-display text-xl">{c.title}</h3>
-                    <Button variant="primary" size="sm" className="mt-4" onClick={() => openCapsule(c)}>
-                      <Unlock size={14} /> Open
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
+          <CapsuleWall
+            locked={locked}
+            ready={ready}
+            opened={openedList}
+            onOpen={openCapsule}
+            onDelete={(id) => capsuleOps.remove(id)}
+          />
 
           {openedList.length > 0 && (
             <section>
@@ -221,7 +211,7 @@ export default function Forever() {
 
           {loveNotes.length === 0 && (
             <Card className="text-center">
-              <p className="text-muted">Quick notes for today — no unlock date needed.</p>
+              <p className="text-muted">Quick notes for today — choose a mood for guided letter prompts.</p>
             </Card>
           )}
 
@@ -262,7 +252,7 @@ export default function Forever() {
         </div>
       </Modal>
 
-      <Modal open={showNoteForm} onClose={() => setShowNoteForm(false)} title="Love note">
+      <Modal open={showNoteForm} onClose={() => setShowNoteForm(false)} title="Love note" wide>
         <Select label="From" value={noteForm.author} onChange={(e) => setNoteForm({ ...noteForm, author: e.target.value })}>
           {authorOptions.map((a) => <option key={a}>{a}</option>)}
         </Select>
@@ -271,10 +261,31 @@ export default function Forever() {
             <option key={k || 'free'} value={k}>{v}</option>
           ))}
         </Select>
-        <Select label="Mood" value={noteForm.mood} onChange={(e) => setNoteForm({ ...noteForm, mood: e.target.value })}>
+        <Select label="Mood — unlocks letter prompts" value={noteForm.mood} onChange={(e) => setNoteForm({ ...noteForm, mood: e.target.value })}>
           <option value="">—</option>
           {MOOD_OPTIONS.map((m) => <option key={m}>{m}</option>)}
         </Select>
+
+        {moodPrompts.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-accent/20 bg-accent/5 p-4">
+            <p className="mb-3 flex items-center gap-2 text-sm text-accent-soft">
+              <Feather size={14} /> Prompts for {noteForm.mood}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {moodPrompts.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm transition hover:border-accent/40"
+                  onClick={() => applyMoodPrompt(p)}
+                >
+                  {p.prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Input
           label="Reveal on (optional — scheduled note)"
           type="date"

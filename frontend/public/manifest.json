@@ -1,8 +1,8 @@
 {
   "name": "Forever, Somewhere",
   "short_name": "Forever",
-  "description": "Private couple spaces — memories, map, dreams, and letters worldwide",
-  "start_url": "/",
+  "description": "Private couple spaces — memories, together-days widget, love pings, and letters",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#ff4d6d",
@@ -12,6 +12,22 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Together days",
+      "short_name": "Together",
+      "description": "See how many days you've been together",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Thinking of you",
+      "short_name": "Ping",
+      "description": "Send a love ping to your partner",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
     }
   ]
 }

@@ -8,6 +8,7 @@ import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { useAuthorOptions } from '../context/AuthContext';
+import DateNightDeck from '../components/DateNightDeck';
 import { DATE_NIGHT_PROMPTS, randomPrompt } from '../utils/prompts';
 
 export default function DateNight() {
@@ -58,7 +59,9 @@ export default function DateNight() {
         </div>
       </Card>
 
-      <h3 className="mb-4 font-display text-xl">All questions</h3>
+      <DateNightDeck />
+
+      <h3 className="mb-4 font-display text-xl">Conversation questions</h3>
       <div className="mb-10 grid gap-3 md:grid-cols-2">
         {DATE_NIGHT_PROMPTS.map((p) => (
           <button
