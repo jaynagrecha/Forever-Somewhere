@@ -48,18 +48,12 @@ app.include_router(romance.router)
 
 @app.get("/api/health")
 def health() -> dict[str, str | bool]:
-    from app.services.email_send import active_email_provider, email_configured, smtp_configured
+    from app.services.email_send import email_configured
 
     return {
         "status": "ok",
         "frontend": "ready" if frontend_available() else "missing",
         "recovery_email_configured": email_configured(),
-        "recovery_email_provider": active_email_provider(),
-        "email_provider_setting": settings.email_provider,
-        "smtp_ready": smtp_configured(),
-        "smtp_host_set": bool(settings.smtp_host.strip()),
-        "smtp_user_set": bool(settings.smtp_user.strip()),
-        "smtp_password_set": bool(settings.smtp_password.strip()),
     }
 
 

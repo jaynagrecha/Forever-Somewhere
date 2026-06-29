@@ -1,5 +1,19 @@
 /** Backend URL — web (static) talks to api (Docker). Api URL uses same-origin when it serves the build. */
 export const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
+export const PRODUCTION_WEB = 'https://forever-somewhere-web.onrender.com';
+
+export function getAppShareUrl() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'forever-somewhere-web.onrender.com' || host === 'forever-somewhere-api.onrender.com') {
+      return PRODUCTION_WEB;
+    }
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin;
+    }
+  }
+  return PRODUCTION_WEB;
+}
 
 export function resolveApiBase() {
   const raw = import.meta.env.VITE_API_URL || '';

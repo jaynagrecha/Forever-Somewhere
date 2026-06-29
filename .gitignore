@@ -15,6 +15,11 @@ backend/static/
 backend/.env
 frontend/.env
 frontend/.env.local
+backend/vapid_keys.json
+**/vapid_keys.json
+*App*Pass*.txt
+Google App Pass.txt
+tmp-bundle.js
 
 # Database & uploads (local only — production uses Render disk)
 backend/*.db

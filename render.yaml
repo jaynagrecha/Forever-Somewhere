@@ -23,12 +23,10 @@ services:
         value: ""
       - key: VAPID_CLAIMS_EMAIL
         value: https://forever-somewhere-web.onrender.com
-      - key: RESEND_API_KEY
-        sync: false
       - key: RECOVERY_FROM_EMAIL
-        value: Forever Somewhere <onboarding@resend.dev>
+        sync: false
       - key: EMAIL_PROVIDER
-        value: auto
+        value: smtp
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT

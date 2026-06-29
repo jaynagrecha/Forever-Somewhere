@@ -193,7 +193,7 @@ export async function subscribeToPush() {
   if (!reg) return { ok: false, reason: 'no-sw' };
 
   const { api } = await import('../api/client');
-  let publicKey = '';
+  let publicKey;
   try {
     const data = await api.getVapidKey();
     publicKey = data.publicKey || '';

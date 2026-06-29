@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield, Lock } from 'lucide-react';
-import PageShell, { SectionHint } from '../components/Layout/PageShell';
+import PageShell from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Input, Select } from '../components/ui/Input';
@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth, useMyName } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { exportArchive } from '../utils/export';
-import { api } from '../api/client';
+import { api, getAppShareUrl } from '../api/client';
 import {
   notificationsEnabled,
   setNotificationsEnabled,
@@ -97,7 +97,7 @@ export default function Settings() {
   }
 
   async function enableNotifications() {
-    if (!myName) return toast('Tap “I am …” above first — push needs to know this device', 'error');
+    if (!myName) return toast('Set who you are on this device first — push needs to know you', 'error');
     const result = await subscribeToPush();
     if (!result.ok) {
       if (result.reason === 'no-vapid') {
@@ -177,9 +177,6 @@ export default function Settings() {
 
   return (
     <PageShell title="⚙ Settings & tools" subtitle="Sync, backup, reminders — so your world stays safe on both phones.">
-      <SectionHint>
-        Deploy once → both phones use the same URL → shared memories, map, and capsules. See deploy guide below.
-      </SectionHint>
 
       <Card className="md:col-span-2 border-accent/20" highlight>
           <h2 className="font-display text-xl">Your private space</h2>
@@ -308,35 +305,34 @@ export default function Settings() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={disableNotifications}>Disable on this device</Button>
               <Button variant="secondary" onClick={reregisterPush}>Re-register this device</Button>
-              <Button variant="secondary" onClick={sendTestPush}>Send test push</Button>
-              <Button variant="secondary" onClick={resetAllPushDevices}>Reset all devices</Button>
             </div>
           ) : (
             <Button className="mt-4" variant="primary" onClick={enableNotifications}>Enable on this device</Button>
           )}
           {pushStatus && (
             <p className="mt-3 text-xs text-muted">
-              Server: {pushStatus.vapid_configured ? 'ready' : 'starting…'} ·{' '}
-              {pushStatus.subscriber_count} device(s) registered
-              {pushStatus.devices?.length > 0 && (
-                <> ({pushStatus.devices.map((d) => d.owner_name).join(', ')})</>
-              )}
+              {pushStatus.subscriber_count} device(s) registered for push
             </p>
           )}
           <p className="mt-2 text-xs text-muted">
-            Set &quot;I am …&quot; before enabling push. Extra &quot;Unknown&quot; entries are old registrations — use Reset all devices, then Re-register on each phone.
+            Set who you are on this device before enabling push. Each partner enables notifications on their own phone.
           </p>
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
-            <p className="font-medium text-white">iPhone lock-screen push (both partners)</p>
+            <p className="font-medium text-white">iPhone lock-screen push</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
-              <li>Open <strong className="text-accent-soft">Safari</strong> → forever-somewhere-web.onrender.com</li>
-              <li>Share → <strong className="text-accent-soft">Add to Home Screen</strong> (required for iOS push)</li>
+              <li>Open <strong className="text-accent-soft">Safari</strong> → {getAppShareUrl().replace('https://', '')}</li>
+              <li>Share → <strong className="text-accent-soft">Add to Home Screen</strong></li>
               <li>Open the app from the home screen icon — not Safari tabs</li>
-              <li>Settings here → <strong className="text-accent-soft">Enable on this device</strong> → Allow</li>
-              <li>Set <strong className="text-accent-soft">Who&apos;s on this device?</strong> above</li>
+              <li>Settings → <strong className="text-accent-soft">Enable on this device</strong> → Allow</li>
             </ol>
-            <p className="mt-2 text-xs">Each partner enables push on their own phone. Requires iOS 16.4+.</p>
+            <p className="mt-2 text-xs">Requires iOS 16.4+. Android: use Chrome and allow notifications when prompted.</p>
           </div>
+          {notifOn && (
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+              <Button variant="ghost" size="sm" onClick={sendTestPush}>Send test notification</Button>
+              <Button variant="ghost" size="sm" onClick={resetAllPushDevices}>Reset all push devices</Button>
+            </div>
+          )}
         </Card>
 
         <Card>
@@ -379,32 +375,32 @@ export default function Settings() {
         </Card>
 
         <Card>
-          <Smartphone className="mb-3 text-accent-soft" size={24} />
-          <h2 className="font-display text-xl">Install on phone</h2>
-          <p className="mt-2 text-sm text-muted">
-            Use this URL in Safari (not the old <code className="text-accent-soft">-web</code> link):
-          </p>
-          <p className="mt-2 text-xs font-mono break-all text-accent-soft">
-            https://forever-somewhere-web.onrender.com
-          </p>
-          <p className="mt-2 text-sm text-muted">Share → Add to Home Screen. Both partners use the same app link + invite code.</p>
-        </Card>
-
-        <Card>
           <Cloud className="mb-3 text-accent-soft" size={24} />
-          <h2 className="font-display text-xl">Two-phone sync</h2>
+          <h2 className="font-display text-xl">App link & sync</h2>
           <p className="mt-2 text-sm text-muted">
-            Status:{' '}
-            {connecting ? '◌ Connecting to backend…' : online ? '● Backend connected' : '○ Offline / local only'}
+            Both partners use the same link and invite code. Add to Home Screen on iPhone for the best experience.
+          </p>
+          <p className="mt-3 text-xs font-mono break-all text-accent-soft">{getAppShareUrl()}</p>
+          <Button
+            className="mt-3"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              navigator.clipboard.writeText(getAppShareUrl());
+              toast('App link copied', 'success');
+            }}
+          >
+            Copy app link
+          </Button>
+          <p className="mt-4 text-sm text-muted">
+            Sync:{' '}
+            {connecting ? 'Connecting…' : online ? 'Connected' : 'Offline'}
           </p>
           {!online && !connecting && (
-            <Button className="mt-4" variant="primary" onClick={() => reconnect()}>
+            <Button className="mt-3" size="sm" variant="primary" onClick={() => reconnect()}>
               Retry sync
             </Button>
           )}
-          <p className="mt-2 text-xs text-muted font-mono break-all">
-            App URL: https://forever-somewhere-web.onrender.com
-          </p>
         </Card>
 
         <Card className="md:col-span-2">
