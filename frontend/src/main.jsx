@@ -10,8 +10,10 @@ import { ActivityProvider } from './context/ActivityContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
-import { runNotificationPoll, ensurePushRegistered } from './utils/notifications';
+import { runNotificationPoll, ensurePushRegistered, initNotificationBridge } from './utils/notifications';
 import { getApiBase } from './api/client';
+
+initNotificationBridge();
 
 function NotificationChecker() {
   const { isAuthed } = useAuth();

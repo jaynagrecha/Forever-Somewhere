@@ -19,10 +19,67 @@ function wasShown(tag) {
 }
 
 function markShown(tag) {
+  if (!tag) return;
   const raw = localStorage.getItem(SHOWN_KEY);
   const map = raw ? JSON.parse(raw) : {};
   map[tag] = true;
   localStorage.setItem(SHOWN_KEY, JSON.stringify(map));
+}
+
+/** Record a push/local notification so polls do not replay it after the app opens. */
+function recordNotificationTag(tag, activityId = null) {
+  if (!tag) return;
+  markShown(tag);
+
+  if (activityId != null && activityId > 0) {
+    const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
+    if (activityId > lastSeen) {
+      localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(activityId));
+    }
+    return;
+  }
+
+  if (tag.startsWith('activity-')) {
+    const id = Number(tag.slice('activity-'.length));
+    if (id > 0) {
+      const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
+      if (id > lastSeen) localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(id));
+    }
+  }
+}
+
+/** Sync activity cursor without showing banners (app is open — feed is visible). */
+async function syncActivityCursor() {
+  if (!notificationsEnabled()) return;
+
+  try {
+    const { api } = await import('../api/client');
+    const items = await api.getActivity(8);
+    if (!items.length) return;
+
+    const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
+    const topId = items[0]?.id ?? lastSeen;
+    if (topId > lastSeen) {
+      localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(topId));
+    }
+
+    for (const item of items) {
+      if (item.id <= lastSeen) break;
+      markShown(`activity-${item.id}`);
+    }
+  } catch {
+    /* offline */
+  }
+}
+
+export function initNotificationBridge() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (!msg || msg.type !== 'PUSH_ACTIVITY') return;
+    recordNotificationTag(msg.tag, msg.activityId ?? null);
+  });
 }
 
 export async function requestNotificationPermission() {
@@ -48,7 +105,7 @@ export function showLocalNotification({ title, body, tag, route = '/dashboard' }
     window.focus();
     window.location.href = route;
   };
-  markShown(tag);
+  recordNotificationTag(tag);
 }
 
 export async function checkAndNotify() {
@@ -63,9 +120,17 @@ export async function checkAndNotify() {
   }
 }
 
-/** In-app alerts when the PWA is open (not lock-screen — that uses Web Push via service worker). */
+/**
+ * Fallback partner alerts when the app is in the background.
+ * When visible, only syncs the cursor — Web Push + ActivityFeed handle the rest.
+ */
 export async function pollPartnerActivity() {
   if (!notificationsEnabled() || Notification.permission !== 'granted') return;
+
+  if (document.visibilityState === 'visible') {
+    await syncActivityCursor();
+    return;
+  }
 
   try {
     const { api } = await import('../api/client');
@@ -80,10 +145,13 @@ export async function pollPartnerActivity() {
       if (item.id <= lastSeen) break;
       if (item.author === myName) continue;
 
+      const tag = `activity-${item.id}`;
+      if (wasShown(tag)) continue;
+
       showLocalNotification({
         title: item.kind === 'ping' ? 'Thinking of you 💕' : 'Partner activity',
         body: item.kind === 'ping' ? item.title : `${item.author} — ${item.title}`,
-        tag: `activity-${item.id}`,
+        tag,
         route: item.route || '/dashboard',
       });
 

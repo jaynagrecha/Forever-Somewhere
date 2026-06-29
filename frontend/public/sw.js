@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v19';
+const CACHE = 'forever-somewhere-v20';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {
@@ -59,14 +59,40 @@ self.addEventListener('push', (e) => {
   } catch {
     /* default */
   }
+
+  const tag = data.tag || 'forever';
+  const activityId = tag.startsWith('activity-') ? Number(tag.slice('activity-'.length)) : null;
+
   e.waitUntil(
-    self.registration.showNotification(data.title || 'Forever, Somewhere', {
-      body: data.body || '',
-      tag: data.tag || 'forever',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: { route: data.route || '/dashboard' },
-      vibrate: [100, 50, 100],
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const appVisible = clientList.some((c) => c.visibilityState === 'visible');
+
+      const notifyClients = (shown) => {
+        clientList.forEach((client) => {
+          client.postMessage({
+            type: 'PUSH_ACTIVITY',
+            tag,
+            activityId: Number.isFinite(activityId) ? activityId : null,
+            shown,
+          });
+        });
+      };
+
+      if (appVisible) {
+        notifyClients(false);
+        return;
+      }
+
+      return self.registration
+        .showNotification(data.title || 'Forever, Somewhere', {
+          body: data.body || '',
+          tag,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+          data: { route: data.route || '/dashboard' },
+          vibrate: [100, 50, 100],
+        })
+        .then(() => notifyClients(true));
     })
   );
 });
