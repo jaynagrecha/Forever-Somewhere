@@ -34,6 +34,12 @@ const AUDIT_LABELS = {
 
 const EMPTY_RECOVERY_FORM = { email: '', otp: '', step: 1, backupShown: '' };
 
+function devicePartnerSlot(partnerNames, myName) {
+  if (myName === partnerNames[0]) return 1;
+  if (myName === partnerNames[1]) return 2;
+  return null;
+}
+
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
   const { toast } = useToast();
@@ -46,14 +52,21 @@ export default function Settings() {
   const [notifOn, setNotifOn] = useState(notificationsEnabled());
   const [pushStatus, setPushStatus] = useState(null);
   const [recoverySettings, setRecoverySettings] = useState(null);
-  const [recoveryForms, setRecoveryForms] = useState({ 1: { ...EMPTY_RECOVERY_FORM }, 2: { ...EMPTY_RECOVERY_FORM } });
+  const [recoveryForm, setRecoveryForm] = useState({ ...EMPTY_RECOVERY_FORM });
+
+  const mySlot = devicePartnerSlot(partnerNames, myName);
+  const myRecovery =
+    mySlot === 1 ? recoverySettings?.partner1 : mySlot === 2 ? recoverySettings?.partner2 : null;
+  const myAudit = (recoverySettings?.audit ?? []).filter(
+    (row) => myName && (row.detail?.includes(myName) || row.event_type.endsWith('_failed'))
+  );
 
   function refreshRecoverySettings() {
     api.getRecoverySettings().then(setRecoverySettings).catch(() => setRecoverySettings(null));
   }
 
-  function patchRecoveryForm(slot, patch) {
-    setRecoveryForms((prev) => ({ ...prev, [slot]: { ...prev[slot], ...patch } }));
+  function patchRecoveryForm(patch) {
+    setRecoveryForm((prev) => ({ ...prev, ...patch }));
   }
 
   useEffect(() => {
@@ -189,71 +202,21 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Card className="md:col-span-2 border-accent/20">
-          <Shield className="mb-3 text-accent-soft" size={24} />
-          <h2 className="font-display text-xl">Account recovery</h2>
-          <p className="mt-2 text-sm text-muted">
-            Each partner sets up their own row below — separate from &quot;Who&apos;s on this device?&quot; below.
-            When locked out, use your own verified email or backup code on the Recover page.
-          </p>
-          {partnerNames.length >= 2 ? (
-            <div className="mt-4 space-y-4">
-              <PartnerRecoverySetup
-                slot={1}
-                partnerName={partnerNames[0]}
-                recovery={recoverySettings?.partner1}
-                form={recoveryForms[1]}
-                onFormChange={(patch) => patchRecoveryForm(1, patch)}
-                onSettingsRefresh={refreshRecoverySettings}
-              />
-              <PartnerRecoverySetup
-                slot={2}
-                partnerName={partnerNames[1]}
-                recovery={recoverySettings?.partner2}
-                form={recoveryForms[2]}
-                onFormChange={(patch) => patchRecoveryForm(2, patch)}
-                onSettingsRefresh={refreshRecoverySettings}
-              />
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-muted">Partner names not loaded yet.</p>
-          )}
-          {recoverySettings?.audit?.length > 0 && (
-            <div className="mt-6 border-t border-white/10 pt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">Recent recovery activity</p>
-              <ul className="mt-2 space-y-1 text-xs text-muted">
-                {recoverySettings.audit.slice(0, 8).map((row, i) => (
-                  <li key={`${row.event_type}-${row.created_at}-${i}`}>
-                    {AUDIT_LABELS[row.event_type] || row.event_type}
-                    {' · '}
-                    {parseUtcIso(row.created_at)?.toLocaleString() ?? row.created_at}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <p className="mt-4 text-xs text-muted">
-            Lost everything?{' '}
-            <a href="/recover" className="text-accent-soft underline">Recover our space</a>
-            {' '}from the landing page.
-          </p>
-        </Card>
-
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:col-span-2">
         {partnerNames.length >= 2 && (
           <Card highlight className="border-accent/20 md:col-span-2">
             <Smartphone className="mb-3 text-accent-soft" size={24} />
             <h2 className="font-display text-xl">Who&apos;s on this device?</h2>
             <p className="mt-2 text-sm text-muted">
-              Choose once per phone or browser — locked forever on this device. Jay on his phone;
-              Ikshika on hers. Does not affect account recovery above (each partner has their own row).
+              Choose once per phone or browser — locked forever on this device. You on your phone;
+              your partner on theirs.
             </p>
             {identityLocked ? (
               <div className="mt-4 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3">
                 <Lock className="shrink-0 text-accent-soft" size={20} />
                 <div>
                   <p className="font-medium text-white">This device is {myName}</p>
-                  <p className="text-xs text-muted">Identity locked — use your partner&apos;s own phone for their name.</p>
+                  <p className="text-xs text-muted">Identity locked — your partner sets up their own phone separately.</p>
                 </div>
               </div>
             ) : (
@@ -289,6 +252,52 @@ export default function Settings() {
           </Card>
         )}
 
+        <Card className="md:col-span-2 border-accent/20">
+          <Shield className="mb-3 text-accent-soft" size={24} />
+          <h2 className="font-display text-xl">Your account recovery</h2>
+          <p className="mt-2 text-sm text-muted">
+            Your verified email or backup code — for if every device is signed out. Your partner sets
+            up theirs on their own phone.
+          </p>
+          {!identityLocked ? (
+            <p className="mt-4 text-sm text-amber-200/90">
+              Set &quot;Who&apos;s on this device?&quot; above first — then your personal recovery options appear here.
+            </p>
+          ) : myRecovery && mySlot ? (
+            <div className="mt-4">
+              <PartnerRecoverySetup
+                slot={mySlot}
+                partnerName={myName}
+                recovery={myRecovery}
+                form={recoveryForm}
+                onFormChange={patchRecoveryForm}
+                onSettingsRefresh={refreshRecoverySettings}
+              />
+            </div>
+          ) : null}
+          {myAudit.length > 0 && (
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">Your recent recovery activity</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted">
+                {myAudit.slice(0, 6).map((row, i) => (
+                  <li key={`${row.event_type}-${row.created_at}-${i}`}>
+                    {AUDIT_LABELS[row.event_type] || row.event_type}
+                    {' · '}
+                    {parseUtcIso(row.created_at)?.toLocaleString() ?? row.created_at}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-4 text-xs text-muted">
+            Lost everything?{' '}
+            <a href="/recover" className="text-accent-soft underline">Recover our space</a>
+            {' '}from the landing page.
+          </p>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
         <Card className="md:col-span-2">
           <Bell className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Notifications</h2>

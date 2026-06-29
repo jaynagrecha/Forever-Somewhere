@@ -47,9 +47,9 @@ export default function PartnerRecoverySetup({ slot, partnerName, recovery, form
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <p className="font-medium text-white">{partnerName}&apos;s recovery</p>
+      <p className="font-medium text-white">Recovery for {partnerName}</p>
       <p className="mt-1 text-sm text-muted">
-        Only {partnerName} should use this email when locked out — not shared with your partner&apos;s row.
+        Your personal recovery — set this up on your phone after you lock your identity in Settings.
       </p>
       <p className="mt-3 text-sm">
         Status:{' '}
