@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
@@ -15,7 +15,8 @@ import {
   notificationsEnabled,
   setNotificationsEnabled,
   subscribeToPush,
-  requestNotificationPermission,
+  ensurePushRegistered,
+  testPushOnDevice,
 } from '../utils/notifications';
 
 export default function Settings() {
@@ -28,6 +29,13 @@ export default function Settings() {
   const [annTitle, setAnnTitle] = useState('');
   const [annDate, setAnnDate] = useState('');
   const [notifOn, setNotifOn] = useState(notificationsEnabled());
+  const [pushStatus, setPushStatus] = useState(null);
+
+  useEffect(() => {
+    if (online) {
+      api.getPushStatus().then(setPushStatus).catch(() => setPushStatus(null));
+    }
+  }, [online, notifOn]);
 
   async function addAnniversary() {
     if (!annTitle || !annDate) return toast('Fill title and date', 'error');
@@ -50,20 +58,42 @@ export default function Settings() {
   }
 
   async function enableNotifications() {
-    const ok = await subscribeToPush();
-    if (!ok) {
-      const perm = await requestNotificationPermission();
-      if (perm) {
-        setNotificationsEnabled(true);
-        setNotifOn(true);
-        toast('In-app alerts enabled — for iPhone lock-screen push, see steps below', 'success');
+    if (!myName) return toast('Tap “I am …” above first — push needs to know this device', 'error');
+    const result = await subscribeToPush();
+    if (!result.ok) {
+      if (result.reason === 'no-vapid') {
+        toast('Push server still starting — wait 1 min and try again', 'error');
         return;
       }
-      toast('Allow notifications in browser settings', 'error');
+      if (result.reason === 'unsupported') {
+        toast('Use Chrome (Android) or Home Screen app (iPhone)', 'error');
+        return;
+      }
+      toast('Allow notifications when prompted', 'error');
       return;
     }
     setNotifOn(true);
-    toast('Push notifications enabled on this device', 'success');
+    api.getPushStatus().then(setPushStatus).catch(() => {});
+    toast(`Push registered for ${result.ownerName || myName}`, 'success');
+  }
+
+  async function reregisterPush() {
+    if (!myName) return toast('Set who you are on this device first', 'error');
+    await enableNotifications();
+  }
+
+  async function sendTestPush() {
+    try {
+      const res = await testPushOnDevice();
+      toast(
+        res.sent > 0
+          ? `Test sent to ${res.sent} device(s)`
+          : 'No devices registered — enable push on both phones',
+        res.sent > 0 ? 'success' : 'error'
+      );
+    } catch {
+      toast('Test push failed', 'error');
+    }
   }
 
   function disableNotifications() {
@@ -126,9 +156,10 @@ export default function Settings() {
                 <Button
                   key={name}
                   variant={myName === name ? 'primary' : 'secondary'}
-                  onClick={() => {
+                  onClick={async () => {
                     setMyName(name);
                     toast(`This device is ${name}`, 'success');
+                    if (notifOn) await ensurePushRegistered();
                   }}
                 >
                   I am {name}
@@ -145,9 +176,22 @@ export default function Settings() {
             Love pings, anniversaries, capsule unlock days, and partner activity.
           </p>
           {notifOn ? (
-            <Button className="mt-4" variant="secondary" onClick={disableNotifications}>Disable on this device</Button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={disableNotifications}>Disable on this device</Button>
+              <Button variant="secondary" onClick={reregisterPush}>Re-register this device</Button>
+              <Button variant="secondary" onClick={sendTestPush}>Send test push</Button>
+            </div>
           ) : (
             <Button className="mt-4" variant="primary" onClick={enableNotifications}>Enable on this device</Button>
+          )}
+          {pushStatus && (
+            <p className="mt-3 text-xs text-muted">
+              Server: {pushStatus.vapid_configured ? 'ready' : 'starting…'} ·{' '}
+              {pushStatus.subscriber_count} device(s) registered
+              {pushStatus.devices?.length > 0 && (
+                <> ({pushStatus.devices.map((d) => d.owner_name).filter(Boolean).join(', ')})</>
+              )}
+            </p>
           )}
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
             <p className="font-medium text-white">iPhone lock-screen push (both partners)</p>

@@ -322,6 +322,7 @@ class PromptAnswerOut(PromptAnswerCreate):
 class PushSubscribePayload(BaseModel):
     endpoint: str
     keys: dict[str, str]
+    owner_name: str = ""
 
 
 class OnThisDayOut(BaseModel):

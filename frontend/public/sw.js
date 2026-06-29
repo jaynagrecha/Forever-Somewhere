@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v17';
+const CACHE = 'forever-somewhere-v18';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {
@@ -46,19 +46,20 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-  let data = { title: 'Forever, Somewhere', body: 'Something special is waiting', route: '/dashboard' };
+  let data = { title: 'Forever, Somewhere', body: 'Something special is waiting', route: '/dashboard', tag: 'forever' };
   try {
-    data = e.data.json();
+    if (e.data) data = { ...data, ...e.data.json() };
   } catch {
     /* default */
   }
   e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
+    self.registration.showNotification(data.title || 'Forever, Somewhere', {
+      body: data.body || '',
       tag: data.tag || 'forever',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       data: { route: data.route || '/dashboard' },
+      vibrate: [100, 50, 100],
     })
   );
 });

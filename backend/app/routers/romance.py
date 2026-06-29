@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
-from app.models.entities import ActivityEvent, CoupleSpace, ImportantDate, Memory, PushSubscription
-from app.routers.push import _send_web_push
+from app.models.entities import ActivityEvent, CoupleSpace, ImportantDate, Memory
 from app.services.activity import log_activity
 from app.services.romance_data import DATE_NIGHT_DECK, FIRST_TAGS, LETTER_PROMPTS_BY_MOOD
 
@@ -64,7 +63,7 @@ def thinking_of_you(
     db: Session = Depends(get_db),
 ) -> dict:
     title = f"{payload.author} is thinking of you 💕"
-    log_activity(
+    row = log_activity(
         db,
         couple_id=couple.id,
         kind="ping",
@@ -74,19 +73,7 @@ def thinking_of_you(
     )
     db.commit()
 
-    push_payload = {
-        "title": "Thinking of you",
-        "body": f"{payload.author} sent you a little love ping",
-        "tag": "thinking-of-you",
-        "route": "/dashboard",
-    }
-    subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
-    sent = 0
-    for sub in subs:
-        if _send_web_push(sub, push_payload):
-            sent += 1
-
-    return {"ok": True, "message": title, "push_sent": sent}
+    return {"ok": True, "message": title, "activity_id": row.id}
 
 
 @router.get("/letter-prompts")

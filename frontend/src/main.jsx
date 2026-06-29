@@ -10,7 +10,7 @@ import { ActivityProvider } from './context/ActivityContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
-import { runNotificationPoll } from './utils/notifications';
+import { runNotificationPoll, ensurePushRegistered } from './utils/notifications';
 import { getApiBase } from './api/client';
 
 function NotificationChecker() {
@@ -20,6 +20,7 @@ function NotificationChecker() {
     if (!isAuthed) return undefined;
 
     runNotificationPoll();
+    ensurePushRegistered();
     const t = setInterval(() => {
       if (document.visibilityState === 'visible') runNotificationPoll();
     }, 20_000);

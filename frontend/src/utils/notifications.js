@@ -2,6 +2,7 @@ const PREFS_KEY = 'forever_notifications_enabled';
 const SHOWN_KEY = 'forever_notifications_shown';
 const LAST_ACTIVITY_ID_KEY = 'forever_last_activity_id';
 const MY_NAME_KEY = 'forever_my_name';
+const VAPID_KEY = 'forever_vapid_key';
 
 export function notificationsEnabled() {
   return localStorage.getItem(PREFS_KEY) === 'true';
@@ -62,7 +63,7 @@ export async function checkAndNotify() {
   }
 }
 
-/** Notify partner activity (pings, new memories) when app is open or in background tab. */
+/** In-app alerts when the PWA is open (not lock-screen — that uses Web Push via service worker). */
 export async function pollPartnerActivity() {
   if (!notificationsEnabled() || Notification.permission !== 'granted') return;
 
@@ -79,14 +80,9 @@ export async function pollPartnerActivity() {
       if (item.id <= lastSeen) break;
       if (item.author === myName) continue;
 
-      const title =
-        item.kind === 'ping'
-          ? item.title
-          : `${item.author} — ${item.title}`;
-
       showLocalNotification({
         title: item.kind === 'ping' ? 'Thinking of you 💕' : 'Partner activity',
-        body: title,
+        body: item.kind === 'ping' ? item.title : `${item.author} — ${item.title}`,
         tag: `activity-${item.id}`,
         route: item.route || '/dashboard',
       });
@@ -110,29 +106,45 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
+async function waitForServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg;
+}
+
+/** Register this device for lock-screen Web Push (requires owner name + valid VAPID). */
 export async function subscribeToPush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return { ok: false, reason: 'unsupported' };
+  }
 
   const perm = await requestNotificationPermission();
-  if (!perm) return false;
+  if (!perm) return { ok: false, reason: 'denied' };
 
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await waitForServiceWorker();
+  if (!reg) return { ok: false, reason: 'no-sw' };
 
   const { api } = await import('../api/client');
   let publicKey = '';
   try {
     const data = await api.getVapidKey();
-    publicKey = data.publicKey;
+    publicKey = data.publicKey || '';
   } catch {
-    return false;
+    return { ok: false, reason: 'vapid-fetch' };
   }
 
   if (!publicKey) {
-    setNotificationsEnabled(true);
-    return true;
+    return { ok: false, reason: 'no-vapid' };
   }
 
+  const storedVapid = localStorage.getItem(VAPID_KEY);
   let sub = await reg.pushManager.getSubscription();
+
+  if (sub && storedVapid && storedVapid !== publicKey) {
+    await sub.unsubscribe();
+    sub = null;
+  }
+
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -140,11 +152,34 @@ export async function subscribeToPush() {
     });
   }
 
+  localStorage.setItem(VAPID_KEY, publicKey);
+
   const json = sub.toJSON();
-  await api.subscribePush({ endpoint: json.endpoint, keys: json.keys });
+  const ownerName = localStorage.getItem(MY_NAME_KEY) || '';
+  await api.subscribePush({
+    endpoint: json.endpoint,
+    keys: json.keys,
+    owner_name: ownerName,
+  });
 
   setNotificationsEnabled(true);
-  return true;
+  return { ok: true, ownerName };
+}
+
+/** Re-register push when app opens (fixes lost subscriptions after deploy). */
+export async function ensurePushRegistered() {
+  if (!notificationsEnabled()) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    await subscribeToPush();
+  } catch {
+    /* best effort */
+  }
+}
+
+export async function testPushOnDevice() {
+  const { api } = await import('../api/client');
+  return api.testPush();
 }
 
 export async function runNotificationPoll() {

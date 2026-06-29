@@ -11,6 +11,7 @@ from app.core.uploads import couple_upload_dir
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, PushSubscription
 from app.schemas.common import PushSubscribePayload
+from app.services.push_notify import send_web_push
 
 router = APIRouter(prefix="/api/push", tags=["push"])
 
@@ -20,12 +21,26 @@ def vapid_public_key() -> dict[str, str]:
     return {"publicKey": settings.vapid_public_key}
 
 
+@router.get("/status")
+def push_status(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> dict:
+    subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
+    return {
+        "vapid_configured": bool(settings.vapid_public_key and settings.vapid_private_key),
+        "subscriber_count": len(subs),
+        "devices": [{"owner_name": s.owner_name or "Unknown"} for s in subs],
+    }
+
+
 @router.post("/subscribe", status_code=201)
 def subscribe(
     payload: PushSubscribePayload,
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
+    owner = (payload.owner_name or "").strip()[:64]
     existing = (
         db.query(PushSubscription)
         .filter(
@@ -37,6 +52,7 @@ def subscribe(
     if existing:
         existing.p256dh = payload.keys.get("p256dh", "")
         existing.auth = payload.keys.get("auth", "")
+        existing.owner_name = owner or existing.owner_name
     else:
         db.add(
             PushSubscription(
@@ -44,10 +60,28 @@ def subscribe(
                 endpoint=payload.endpoint,
                 p256dh=payload.keys.get("p256dh", ""),
                 auth=payload.keys.get("auth", ""),
+                owner_name=owner,
             )
         )
     db.commit()
-    return {"status": "subscribed"}
+    return {"status": "subscribed", "owner_name": owner}
+
+
+@router.post("/test", status_code=200)
+def test_push(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Send a test notification to all devices registered for this couple."""
+    subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
+    payload = {
+        "title": "Forever, Somewhere 💕",
+        "body": "Push is working on this device!",
+        "tag": "push-test",
+        "route": "/dashboard",
+    }
+    sent = sum(1 for s in subs if send_web_push(s, payload) == "ok")
+    return {"sent": sent, "subscribers": len(subs)}
 
 
 @router.post("/unsubscribe", status_code=204)
@@ -89,26 +123,6 @@ async def upload_capsule_media(
     return {"url": f"/uploads/{couple.id}/{name}", "media_type": media_type}
 
 
-def _send_web_push(sub: PushSubscription, payload: dict) -> bool:
-    if not settings.vapid_private_key or not settings.vapid_public_key:
-        return False
-    try:
-        from pywebpush import webpush
-
-        webpush(
-            subscription_info={
-                "endpoint": sub.endpoint,
-                "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
-            },
-            data=json.dumps(payload),
-            vapid_private_key=settings.vapid_private_key,
-            vapid_claims={"sub": settings.vapid_claims_email},
-        )
-        return True
-    except Exception:
-        return False
-
-
 @router.post("/broadcast")
 def broadcast_notifications(
     couple: CoupleSpace = Depends(get_current_couple),
@@ -127,6 +141,6 @@ def broadcast_notifications(
             "route": item.route,
         }
         for sub in subs:
-            if _send_web_push(sub, payload):
+            if send_web_push(sub, payload):
                 sent += 1
     return {"sent": sent, "subscribers": len(subs)}

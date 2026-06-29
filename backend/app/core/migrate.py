@@ -153,6 +153,10 @@ def run_migrations() -> None:
             _add_col(conn, "love_notes", "reveal_date", "reveal_date DATE", cols)
             _add_col(conn, "love_notes", "couple_id", "couple_id INTEGER", cols)
 
+        if "push_subscriptions" in tables:
+            cols = {c["name"] for c in inspector.get_columns("push_subscriptions")}
+            _add_col(conn, "push_subscriptions", "owner_name", "owner_name VARCHAR(64) DEFAULT ''", cols)
+
         for table in (
             "trip_pins",
             "important_dates",

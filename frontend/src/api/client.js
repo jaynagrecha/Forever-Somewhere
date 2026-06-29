@@ -132,6 +132,8 @@ export const api = {
   deletePromptAnswer: (id) => request(`/api/prompts/answers/${id}`, { method: 'DELETE' }),
 
   getVapidKey: () => request('/api/push/vapid-public-key'),
+  getPushStatus: () => request('/api/push/status'),
+  testPush: () => request('/api/push/test', { method: 'POST' }),
   subscribePush: (data) => request('/api/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
 
   importLocal: (data) => request('/api/import/local', { method: 'POST', body: JSON.stringify(data) }),
