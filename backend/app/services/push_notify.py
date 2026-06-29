@@ -22,6 +22,7 @@ _PUSH_COPY: dict[str, tuple[str, str]] = {
     "desire_jar": ("After Dark 🌙", "Something new in the desire jar"),
     "vault": ("After Dark 🌙", "{author} left something for you"),
     "note_reaction": ("Note reaction", "{author} {title}"),
+    "check_in": ("After Dark check-in 💬", "{author} — {title}"),
 }
 
 _vapid_lock = threading.Lock()

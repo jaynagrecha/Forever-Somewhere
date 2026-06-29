@@ -21,6 +21,7 @@ def build_activity_route(kind: str, entity_id: int | None, fallback: str = "/das
         "desire_jar": "/after-dark",
         "vault": "/after-dark",
         "note_reaction": "/forever?tab=notes",
+        "check_in": "/after-dark?tab=checkin",
     }
     return routes.get(kind, fallback)
 

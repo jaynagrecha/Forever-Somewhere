@@ -150,6 +150,14 @@ class CheckInIn(BaseModel):
     note: str = ""
 
 
+_CHECK_IN_LABELS = {
+    "great": "Great",
+    "good": "Good",
+    "talk": "Let's talk",
+    "not_for_me": "Not for me",
+}
+
+
 class DeckCardIn(BaseModel):
     tier: str = Field(pattern="^(sweet|spicy|wild)$")
     kind: str = Field(pattern="^(truth|dare|challenge)$")
@@ -841,6 +849,35 @@ def set_energy(
     return {"ok": True, "expires_at": utc_iso(expires)}
 
 
+@router.get("/check-in")
+def list_check_ins(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=30, ge=1, le=100),
+) -> dict:
+    _require_after_dark(couple, db)
+    rows = (
+        db.query(IntimacyCheckIn)
+        .filter(IntimacyCheckIn.couple_id == couple.id)
+        .order_by(IntimacyCheckIn.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "entries": [
+            {
+                "id": r.id,
+                "author": r.author,
+                "rating": r.rating,
+                "rating_label": _CHECK_IN_LABELS.get(r.rating, r.rating),
+                "note": r.note or "",
+                "created_at": utc_iso(r.created_at),
+            }
+            for r in rows
+        ]
+    }
+
+
 @router.post("/check-in", status_code=201)
 def check_in(
     payload: CheckInIn,
@@ -850,13 +887,23 @@ def check_in(
 ) -> dict:
     _require_after_dark(couple, db)
     assert_posts_as_self(author, author, couple)
-    db.add(
-        IntimacyCheckIn(
-            couple_id=couple.id,
-            author=author,
-            rating=payload.rating,
-            note=payload.note.strip(),
-        )
+    row = IntimacyCheckIn(
+        couple_id=couple.id,
+        author=author,
+        rating=payload.rating,
+        note=payload.note.strip(),
+    )
+    db.add(row)
+    db.flush()
+    log_activity(
+        db,
+        couple_id=couple.id,
+        kind="check_in",
+        title=_CHECK_IN_LABELS.get(payload.rating, payload.rating),
+        author=author,
+        entity_id=row.id,
+        route="/after-dark?tab=checkin",
     )
     db.commit()
-    return {"ok": True}
+    db.refresh(row)
+    return {"id": row.id, "ok": True}

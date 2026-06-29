@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Flame, Lock, Moon } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Card from '../components/ui/Card';
@@ -7,7 +8,9 @@ import { Input, TextArea, Select } from '../components/ui/Input';
 import { api } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { usePostingAuthor } from '../context/AuthContext';
+import { useActivity } from '../context/ActivityContext';
 import { AFTER_DARK_PIN_KEY, AFTER_DARK_UNLOCK_KEY } from '../utils/constants';
+import { formatActivityWhen } from '../utils/datetime';
 
 const TABS = [
   { id: 'jar', label: 'Desire jar' },
@@ -29,10 +32,15 @@ function unlockSession(minutes = 30) {
 export default function AfterDark() {
   const { toast } = useToast();
   const { author } = usePostingAuthor();
+  const { refreshActivity } = useActivity();
+  const [params] = useSearchParams();
   const [prefs, setPrefs] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [sessionOpen, setSessionOpen] = useState(isUnlocked);
-  const [tab, setTab] = useState('jar');
+  const [tab, setTab] = useState(() => {
+    const t = params.get('tab');
+    return TABS.some((x) => x.id === t) ? t : 'jar';
+  });
 
   const [jar, setJar] = useState([]);
   const [jarChips, setJarChips] = useState([]);
@@ -47,6 +55,7 @@ export default function AfterDark() {
   const [energy, setEnergy] = useState({ energy: 'playful', surprises: 'ask' });
   const [partnerEnergy, setPartnerEnergy] = useState([]);
   const [checkIn, setCheckIn] = useState({ rating: 'good', note: '' });
+  const [checkIns, setCheckIns] = useState([]);
 
   const loadPrefs = useCallback(() => {
     api.getPhase2Prefs().then(setPrefs).catch(() => setPrefs(null));
@@ -67,6 +76,10 @@ export default function AfterDark() {
     api.getEnergy().then((d) => setPartnerEnergy(d.statuses || [])).catch(() => {});
   }, []);
 
+  const loadCheckIns = useCallback(() => {
+    api.getCheckIns().then((d) => setCheckIns(d.entries || [])).catch(() => setCheckIns([]));
+  }, []);
+
   useEffect(() => {
     loadPrefs();
   }, [loadPrefs]);
@@ -76,7 +89,8 @@ export default function AfterDark() {
     if (tab === 'jar') loadJar();
     if (tab === 'vault') loadVault();
     if (tab === 'energy') loadEnergy();
-  }, [sessionOpen, prefs, tab, loadJar, loadVault, loadEnergy]);
+    if (tab === 'checkin') loadCheckIns();
+  }, [sessionOpen, prefs, tab, loadJar, loadVault, loadEnergy, loadCheckIns]);
 
   function tryPin() {
     const saved = localStorage.getItem(AFTER_DARK_PIN_KEY);
@@ -137,8 +151,10 @@ export default function AfterDark() {
   async function submitCheckIn() {
     try {
       await api.checkIn(checkIn, author);
-      toast('Check-in saved', 'success');
+      toast('Check-in saved — your partner can see it under Check-in', 'success');
       setCheckIn({ rating: 'good', note: '' });
+      loadCheckIns();
+      refreshActivity();
     } catch {
       toast('Save failed', 'error');
     }
@@ -400,17 +416,51 @@ export default function AfterDark() {
       )}
 
       {tab === 'checkin' && (
-        <Card>
-          <h2 className="font-display text-xl">How did that land?</h2>
-          <Select label="Rating" value={checkIn.rating} onChange={(e) => setCheckIn({ ...checkIn, rating: e.target.value })} className="mt-4">
-            <option value="great">Great</option>
-            <option value="good">Good</option>
-            <option value="talk">Let&apos;s talk</option>
-            <option value="not_for_me">Not for me</option>
-          </Select>
-          <TextArea label="Note (optional)" value={checkIn.note} onChange={(e) => setCheckIn({ ...checkIn, note: e.target.value })} className="mt-4" />
-          <Button className="mt-4" variant="primary" onClick={submitCheckIn}>Save check-in</Button>
-        </Card>
+        <div className="grid gap-8 lg:grid-cols-2">
+          <Card>
+            <h2 className="font-display text-xl">How did that land?</h2>
+            <p className="mt-2 text-sm text-muted">
+              After a moment together — or after tension. Your partner sees this on their Check-in tab and gets a notification.
+            </p>
+            <Select label="Rating" value={checkIn.rating} onChange={(e) => setCheckIn({ ...checkIn, rating: e.target.value })} className="mt-4">
+              <option value="great">Great</option>
+              <option value="good">Good</option>
+              <option value="talk">Let&apos;s talk</option>
+              <option value="not_for_me">Not for me</option>
+            </Select>
+            <TextArea label="Note (optional)" value={checkIn.note} onChange={(e) => setCheckIn({ ...checkIn, note: e.target.value })} className="mt-4" placeholder="Can we talk tomorrow?" />
+            <Button className="mt-4" variant="primary" onClick={submitCheckIn}>Save check-in</Button>
+          </Card>
+          <div className="space-y-3">
+            <h3 className="font-display text-lg">Between you two</h3>
+            {!checkIns.length && (
+              <p className="text-sm text-muted">No check-ins yet — when one of you saves, it appears here for both.</p>
+            )}
+            {checkIns.map((entry) => {
+              const isMine = entry.author === author;
+              const needsAttention = entry.rating === 'talk' || entry.rating === 'not_for_me';
+              return (
+                <Card
+                  key={entry.id}
+                  className={!isMine && needsAttention ? 'border-amber-500/40 ring-1 ring-amber-500/20' : isMine ? 'border-white/10' : 'border-accent/20'}
+                >
+                  <p className="text-xs uppercase text-muted">
+                    {entry.rating_label || entry.rating}
+                    {!isMine && needsAttention && ' · please read'}
+                  </p>
+                  {entry.note ? (
+                    <p className="mt-2 whitespace-pre-wrap leading-relaxed">{entry.note}</p>
+                  ) : (
+                    <p className="mt-2 text-sm italic text-muted">No note — just the rating.</p>
+                  )}
+                  <p className="mt-3 text-xs text-muted">
+                    — {entry.author} · {formatActivityWhen(entry.created_at)}
+                  </p>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       )}
     </PageShell>
   );

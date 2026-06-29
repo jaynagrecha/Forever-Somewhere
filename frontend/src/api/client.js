@@ -304,6 +304,7 @@ export const api = {
   getEnergy: () => request('/api/phase2/energy'),
   setEnergy: (data, author) =>
     request(withAuthorQuery('/api/phase2/energy', author), { method: 'POST', body: JSON.stringify(data) }),
+  getCheckIns: () => request('/api/phase2/check-in'),
   checkIn: (data, author) =>
     request(withAuthorQuery('/api/phase2/check-in', author), { method: 'POST', body: JSON.stringify(data) }),
 };

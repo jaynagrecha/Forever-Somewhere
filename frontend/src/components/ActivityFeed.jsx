@@ -19,6 +19,7 @@ const KIND_LABEL = {
   note_reaction: '💕 Reaction',
   desire_jar: '🌙 Desire jar',
   vault: '🌙 Vault',
+  check_in: '💬 Check-in',
 };
 
 const POLL_MS = 12_000;

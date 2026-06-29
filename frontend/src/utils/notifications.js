@@ -34,6 +34,8 @@ export function formatPartnerActivityAlert(item) {
       return { title: 'After Dark 🌙', body: 'Something new in the desire jar' };
     case 'vault':
       return { title: 'After Dark 🌙', body: `${author} left something for you` };
+    case 'check_in':
+      return { title: 'After Dark check-in 💬', body: `${author} — ${title}` };
     default:
       return { title: 'Partner activity', body: `${author} — ${title}` };
   }
