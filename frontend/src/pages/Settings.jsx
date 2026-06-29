@@ -7,7 +7,7 @@ import { Input, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useMyName } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { exportArchive } from '../utils/export';
 import { api } from '../api/client';
@@ -22,7 +22,8 @@ import { getApiBase } from '../api/client';
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
   const { toast } = useToast();
-  const { inviteCode, displayName, logout } = useAuth();
+  const { inviteCode, displayName, logout, partnerNames } = useAuth();
+  const { myName, setMyName } = useMyName();
   const { theme, setTheme, seasonalThemes } = useTheme();
   const { locale, setLocale } = useLocale();
   const [annTitle, setAnnTitle] = useState('');
@@ -113,6 +114,31 @@ export default function Settings() {
         </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {partnerNames.length >= 2 && (
+          <Card highlight className="border-accent/20 md:col-span-2">
+            <Smartphone className="mb-3 text-accent-soft" size={24} />
+            <h2 className="font-display text-xl">Who&apos;s on this device?</h2>
+            <p className="mt-2 text-sm text-muted">
+              Each phone or browser remembers its own name — so pings, daily answers, and quiz replies
+              show the right person. Jay picks Jay on his phone; Ikshika picks Ikshika on hers.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {partnerNames.map((name) => (
+                <Button
+                  key={name}
+                  variant={myName === name ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    setMyName(name);
+                    toast(`This device is ${name}`, 'success');
+                  }}
+                >
+                  I am {name}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card>
           <Bell className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Notifications</h2>

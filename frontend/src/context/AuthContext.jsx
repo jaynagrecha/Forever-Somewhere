@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api, setCoupleTokenGetter } from '../api/client';
 
 const TOKEN_KEY = 'forever_couple_token';
+const MY_NAME_KEY = 'forever_my_name';
 
 const AuthContext = createContext(null);
 
@@ -82,9 +83,53 @@ export function useAuthorOptions() {
   }, [partnerNames]);
 }
 
-/** Single partner picker (daily question, quiz) */
+/** Single partner picker (daily question, quiz) — prefers this device's saved identity */
 export function usePartnerPicker(defaultIndex = 0) {
   const { partnerNames } = useAuth();
+  const { myName } = useMyName();
   const names = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
+  if (myName && names.includes(myName)) return myName;
   return names[defaultIndex] || names[0];
+}
+
+/** Who is using this device — stored locally so pings and answers credit the right partner */
+export function useMyName() {
+  const { partnerNames } = useAuth();
+  const names = partnerNames.length >= 2 ? partnerNames : [];
+
+  const readStored = () => {
+    const stored = localStorage.getItem(MY_NAME_KEY);
+    if (stored && names.includes(stored)) return stored;
+    return '';
+  };
+
+  const [myName, setMyNameState] = useState(readStored);
+
+  useEffect(() => {
+    const stored = readStored();
+    setMyNameState(stored);
+  }, [partnerNames.join('|')]);
+
+  const setMyName = useCallback(
+    (name) => {
+      if (name && names.includes(name)) {
+        localStorage.setItem(MY_NAME_KEY, name);
+        setMyNameState(name);
+      } else if (!name) {
+        localStorage.removeItem(MY_NAME_KEY);
+        setMyNameState('');
+      }
+    },
+    [names]
+  );
+
+  return useMemo(
+    () => ({
+      myName,
+      setMyName,
+      partnerNames: names,
+      needsSetup: names.length >= 2 && !myName,
+    }),
+    [myName, setMyName, names]
+  );
 }

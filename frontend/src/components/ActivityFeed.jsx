@@ -55,7 +55,13 @@ export default function ActivityFeed({ limit = 6 }) {
             >
               <span className="text-sm text-muted">{KIND_LABEL[ev.kind] || ev.kind}</span>
               <span className="flex-1 text-sm">
-                <strong>{ev.author}</strong> — {ev.title}
+                {ev.kind === 'ping' ? (
+                  <strong>{ev.title}</strong>
+                ) : (
+                  <>
+                    <strong>{ev.author}</strong> — {ev.title}
+                  </>
+                )}
               </span>
               <span className="text-xs text-muted">
                 {ev.created_at ? new Date(ev.created_at).toLocaleDateString() : ''}
