@@ -32,14 +32,14 @@ export function setCoupleTokenGetter(fn) {
   coupleTokenGetter = fn;
 }
 
-const PUBLIC_PATHS = [
+const PUBLIC_PATHS = new Set([
   '/api/health',
   '/api/couples/create',
   '/api/couples/join',
   '/api/recovery/start',
   '/api/recovery/complete',
   '/api/recovery/backup',
-];
+]);
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -71,7 +71,7 @@ async function request(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  const isPublic = PUBLIC_PATHS.has(path);
   const token = coupleTokenGetter();
   if (token && !isPublic) {
     headers.Authorization = `Bearer ${token}`;
