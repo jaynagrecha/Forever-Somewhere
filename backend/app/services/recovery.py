@@ -252,11 +252,26 @@ def deliver_verify_otp_email(couple_id: int, to: str, otp: str) -> None:
         db.close()
 
 
+def _email_used_by_other_partner(couple: CoupleSpace, partner_slot: int, normalized: str) -> bool:
+    other = 2 if partner_slot == 1 else 1
+    email_field, verified_field, _, _ = partner_slot_fields(other)
+    if not getattr(couple, verified_field):
+        return False
+    other_email = normalize_email(getattr(couple, email_field) or "")
+    return other_email == normalized
+
+
 def confirm_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, email: str, otp: str) -> str:
     normalized = normalize_email(email)
     row = _verify_otp_row(db, normalized, otp, OTP_PURPOSE_VERIFY)
     if not row or row.couple_id != couple.id or row.partner_slot != partner_slot:
         raise ValueError("Invalid or expired code")
+
+    if _email_used_by_other_partner(couple, partner_slot, normalized):
+        raise ValueError(
+            "This email is already registered for your partner's recovery. "
+            "Each person needs their own recovery email."
+        )
 
     email_field, verified_field, _, name_field = partner_slot_fields(partner_slot)
     setattr(couple, email_field, normalized)

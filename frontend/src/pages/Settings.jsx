@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth, useMyName } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { exportArchive } from '../utils/export';
-import { api, formatApiError } from '../api/client';
+import { api } from '../api/client';
 import {
   notificationsEnabled,
   setNotificationsEnabled,
@@ -19,6 +19,7 @@ import {
   testPushOnDevice,
 } from '../utils/notifications';
 import { parseUtcIso } from '../utils/datetime';
+import PartnerRecoverySetup from '../components/PartnerRecoverySetup';
 
 const AUDIT_LABELS = {
   verify_otp_sent: 'Verification code sent',
@@ -31,11 +32,7 @@ const AUDIT_LABELS = {
   backup_attempt: 'Backup recovery used',
 };
 
-function partnerSlot(partnerNames, myName) {
-  if (myName === partnerNames[0]) return 1;
-  if (myName === partnerNames[1]) return 2;
-  return null;
-}
+const EMPTY_RECOVERY_FORM = { email: '', otp: '', step: 1, backupShown: '' };
 
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
@@ -49,10 +46,15 @@ export default function Settings() {
   const [notifOn, setNotifOn] = useState(notificationsEnabled());
   const [pushStatus, setPushStatus] = useState(null);
   const [recoverySettings, setRecoverySettings] = useState(null);
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [verifyOtp, setVerifyOtp] = useState('');
-  const [verifyStep, setVerifyStep] = useState(1);
-  const [backupCodeShown, setBackupCodeShown] = useState('');
+  const [recoveryForms, setRecoveryForms] = useState({ 1: { ...EMPTY_RECOVERY_FORM }, 2: { ...EMPTY_RECOVERY_FORM } });
+
+  function refreshRecoverySettings() {
+    api.getRecoverySettings().then(setRecoverySettings).catch(() => setRecoverySettings(null));
+  }
+
+  function patchRecoveryForm(slot, patch) {
+    setRecoveryForms((prev) => ({ ...prev, [slot]: { ...prev[slot], ...patch } }));
+  }
 
   useEffect(() => {
     if (online) {
@@ -60,51 +62,6 @@ export default function Settings() {
       api.getRecoverySettings().then(setRecoverySettings).catch(() => setRecoverySettings(null));
     }
   }, [online, notifOn]);
-
-  const recoverySlot = partnerSlot(partnerNames, myName);
-  const myRecovery =
-    recoverySlot === 1 ? recoverySettings?.partner1 : recoverySlot === 2 ? recoverySettings?.partner2 : null;
-
-  async function sendVerifyOtp() {
-    if (!recoverySlot) return toast('Set who you are on this device first', 'error');
-    if (!recoveryEmail.trim()) return toast('Enter your email', 'error');
-    try {
-      await api.requestRecoveryEmailVerify({ partner_slot: recoverySlot, email: recoveryEmail.trim() });
-      toast('Verification code sent — check your inbox', 'success');
-      setVerifyStep(2);
-    } catch (err) {
-      toast(formatApiError(err), 'error');
-    }
-  }
-
-  async function confirmVerifyOtp() {
-    if (!recoverySlot) return;
-    try {
-      await api.confirmRecoveryEmailVerify({
-        partner_slot: recoverySlot,
-        email: recoveryEmail.trim(),
-        otp: verifyOtp.trim(),
-      });
-      toast('Recovery email saved', 'success');
-      setVerifyStep(1);
-      setVerifyOtp('');
-      api.getRecoverySettings().then(setRecoverySettings).catch(() => {});
-    } catch (err) {
-      toast(err.message || 'Invalid code', 'error');
-    }
-  }
-
-  async function generateBackup() {
-    if (!recoverySlot) return toast('Set who you are on this device first', 'error');
-    try {
-      const res = await api.generateRecoveryBackupCode({ partner_slot: recoverySlot });
-      setBackupCodeShown(res.backup_code);
-      toast('Save this code now — shown once', 'success');
-      api.getRecoverySettings().then(setRecoverySettings).catch(() => {});
-    } catch (err) {
-      toast(err.message || 'Could not generate code', 'error');
-    }
-  }
 
   async function addAnniversary() {
     if (!annTitle || !annDate) return toast('Fill title and date', 'error');
@@ -236,82 +193,30 @@ export default function Settings() {
           <Shield className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Account recovery</h2>
           <p className="mt-2 text-sm text-muted">
-            If every device is signed out, recover your invite code with a verified email or a one-time backup code.
-            Each partner sets up their own recovery — not shared.
+            Each partner sets up their own row below — separate from &quot;Who&apos;s on this device?&quot; below.
+            When locked out, use your own verified email or backup code on the Recover page.
           </p>
-          {!recoverySlot && (
-            <p className="mt-3 text-sm text-amber-200/90">Set &quot;Who&apos;s on this device?&quot; below first.</p>
-          )}
-          {recoverySlot && myRecovery && (
+          {partnerNames.length >= 2 ? (
             <div className="mt-4 space-y-4">
-              <p className="text-sm">
-                Status:{' '}
-                {myRecovery.verified ? (
-                  <span className="text-green-400">✓ {myRecovery.email_masked}</span>
-                ) : (
-                  <span className="text-muted">No verified recovery email yet</span>
-                )}
-                {myRecovery.has_backup && (
-                  <span className="ml-2 text-accent-soft">· Backup code on file</span>
-                )}
-              </p>
-              {!myRecovery.verified && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Input
-                    label="Recovery email (yours only)"
-                    type="email"
-                    value={recoveryEmail}
-                    onChange={(e) => setRecoveryEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    disabled={verifyStep === 2}
-                  />
-                  {verifyStep === 1 ? (
-                    <div className="flex items-end">
-                      <Button variant="primary" onClick={sendVerifyOtp}>Send verification code</Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Input
-                        label="6-digit code from email"
-                        value={verifyOtp}
-                        onChange={(e) => setVerifyOtp(e.target.value)}
-                        placeholder="123456"
-                        maxLength={6}
-                      />
-                      <div className="flex flex-wrap items-end gap-2">
-                        <Button variant="primary" onClick={confirmVerifyOtp}>Confirm email</Button>
-                        <Button variant="secondary" onClick={() => { setVerifyStep(1); setVerifyOtp(''); }}>Change email</Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-              <div>
-                <Button variant="secondary" onClick={generateBackup} disabled={!recoverySlot}>
-                  {myRecovery.has_backup ? 'Generate new backup code' : 'Generate backup code'}
-                </Button>
-                <p className="mt-2 text-xs text-muted">
-                  Shown once — store in a password manager or safe place. Regenerating invalidates the old code.
-                </p>
-              </div>
-              {backupCodeShown && (
-                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-amber-200">Save now — won&apos;t show again</p>
-                  <p className="mt-2 font-mono text-lg tracking-wider text-white">{backupCodeShown}</p>
-                  <Button
-                    className="mt-3"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(backupCodeShown);
-                      toast('Backup code copied', 'success');
-                    }}
-                  >
-                    Copy code
-                  </Button>
-                </div>
-              )}
+              <PartnerRecoverySetup
+                slot={1}
+                partnerName={partnerNames[0]}
+                recovery={recoverySettings?.partner1}
+                form={recoveryForms[1]}
+                onFormChange={(patch) => patchRecoveryForm(1, patch)}
+                onSettingsRefresh={refreshRecoverySettings}
+              />
+              <PartnerRecoverySetup
+                slot={2}
+                partnerName={partnerNames[1]}
+                recovery={recoverySettings?.partner2}
+                form={recoveryForms[2]}
+                onFormChange={(patch) => patchRecoveryForm(2, patch)}
+                onSettingsRefresh={refreshRecoverySettings}
+              />
             </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted">Partner names not loaded yet.</p>
           )}
           {recoverySettings?.audit?.length > 0 && (
             <div className="mt-6 border-t border-white/10 pt-4">
