@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     recovery_from_email: str = "Forever Somewhere <onboarding@resend.dev>"
     recovery_otp_ttl_minutes: int = 15
+    # auto = SMTP if configured, else Resend. SMTP works for any recipient (e.g. Gmail App Password).
+    email_provider: str = "auto"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
 
     def cors_origin_list(self) -> list[str]:
         origins = []

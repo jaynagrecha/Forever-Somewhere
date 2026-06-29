@@ -47,10 +47,14 @@ app.include_router(romance.router)
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
+def health() -> dict[str, str | bool]:
+    from app.services.email_send import active_email_provider, email_configured
+
     return {
         "status": "ok",
         "frontend": "ready" if frontend_available() else "missing",
+        "recovery_email_configured": email_configured(),
+        "recovery_email_provider": active_email_provider(),
     }
 
 

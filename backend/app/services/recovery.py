@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.entities import CoupleSpace, RecoveryAuditLog, RecoveryOtp
 from app.services.couple_auth import hash_token, verify_password
-from app.services.email_send import send_email
+from app.services.email_send import SendResult, send_email
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ def log_audit(db: Session, couple_id: int, event_type: str, detail: str) -> None
     )
 
 
-def _send_otp_email(to: str, otp: str, *, verifying: bool) -> bool:
+def _send_otp_email(to: str, otp: str, *, verifying: bool) -> SendResult:
     action = "verify your recovery email" if verifying else "recover your invite code"
     subject = f"Forever, Somewhere — {action}"
     html = f"""
@@ -145,7 +145,7 @@ def _send_otp_email(to: str, otp: str, *, verifying: bool) -> bool:
     return send_email(to=to, subject=subject, html=html, text=text)
 
 
-def _send_invite_email(to: str, invite_code: str, display_name: str) -> bool:
+def _send_invite_email(to: str, invite_code: str, display_name: str) -> SendResult:
     subject = "Your Forever, Somewhere invite code"
     html = f"""
     <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;">
@@ -226,8 +226,9 @@ def request_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, emai
         purpose=OTP_PURPOSE_VERIFY,
         partner_slot=partner_slot,
     )
-    if not _send_otp_email(normalized, otp, verifying=True):
-        raise RuntimeError("Could not send email — check server email configuration")
+    result = _send_otp_email(normalized, otp, verifying=True)
+    if not result.ok:
+        raise RuntimeError(result.error or "Could not send email — check server email configuration")
     log_audit(db, couple.id, "verify_otp_sent", f"Verification code sent to {mask_email(normalized)}")
     return mask_email(normalized)
 
@@ -265,8 +266,10 @@ def request_recovery_otp(db: Session, email: str) -> str:
             purpose=OTP_PURPOSE_RECOVER,
             partner_slot=slot,
         )
-        if settings.resend_api_key:
-            _send_otp_email(normalized, otp, verifying=False)
+        if email_configured():
+            result = _send_otp_email(normalized, otp, verifying=False)
+            if not result.ok:
+                logger.warning("Recovery OTP email failed for %s: %s", mask_email(normalized), result.error)
         log_audit(db, couple.id, "recover_otp_sent", f"Recovery code sent to {mask_email(normalized)}")
 
     return mask_email(normalized)
@@ -287,8 +290,9 @@ def complete_recovery(db: Session, email: str, otp: str, password: str = "") -> 
         raise ValueError("Incorrect space password")
 
     db.delete(row)
-    if not _send_invite_email(normalized, couple.invite_code, couple.display_name):
-        raise RuntimeError("Code verified but email could not be sent — try backup code or contact support")
+    result = _send_invite_email(normalized, couple.invite_code, couple.display_name)
+    if not result.ok:
+        raise RuntimeError(result.error or "Code verified but email could not be sent — try backup code")
 
     log_audit(db, couple.id, "recover_success", f"Invite code emailed to {mask_email(normalized)}")
     db.flush()
