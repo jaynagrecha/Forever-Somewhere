@@ -86,6 +86,7 @@ class MemoryOut(MemoryBase):
             voice_url=getattr(row, "voice_url", "") or "",
             before_photo=json.loads(getattr(row, "before_photo_json", None) or "null") or None,
             after_photo=json.loads(getattr(row, "after_photo_json", None) or "null") or None,
+            added_by=getattr(row, "added_by", None) or "Us",
             created_at=row.created_at,
         )
 
@@ -138,6 +139,7 @@ class DreamBase(BaseModel):
     saved_amount: float = 0.0
     wishlist_url: str = ""
     votes: dict[str, int] = Field(default_factory=dict)
+    created_by: str = "Us"
 
 
 class DreamCreate(DreamBase):
@@ -183,6 +185,7 @@ class DreamOut(DreamBase):
             saved_amount=float(getattr(row, "saved_amount", 0) or 0),
             wishlist_url=getattr(row, "wishlist_url", "") or "",
             votes=votes,
+            created_by=getattr(row, "created_by", None) or "Us",
             created_at=row.created_at,
         )
 

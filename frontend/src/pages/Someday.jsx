@@ -8,7 +8,8 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { canManageByAuthor } from '../utils/author';
 import { useToast } from '../context/ToastContext';
 import { buildDreamMemoryParams } from '../utils/insights';
 
@@ -38,6 +39,9 @@ export default function Someday() {
   const { dreams, dreamOps, insights } = useData();
   const { toast } = useToast();
   const { partnerNames } = useAuth();
+  const { myName } = useMyName();
+  const defaultAuthor = usePartnerPicker(0);
+  const actor = myName || defaultAuthor;
   const voters = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   const [showForm, setShowForm] = useState(() => params.get('new') === '1');
   const [editingId, setEditingId] = useState(null);
@@ -78,11 +82,15 @@ export default function Someday() {
     setEditingId(null);
   }
 
+  function canManageDream(dream) {
+    return canManageByAuthor(dream, actor);
+  }
+
   async function save() {
     if (!form.title.trim()) return toast('Enter a dream title', 'error');
     try {
       if (editingId) await dreamOps.update(editingId, form);
-      else await dreamOps.create(form);
+      else await dreamOps.create({ ...form, created_by: actor });
       toast(editingId ? 'Dream updated' : 'Dream added', 'success');
       setShowForm(false);
       reset();
@@ -244,7 +252,9 @@ export default function Someday() {
                 ))}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => openEdit(dream)}><Pencil size={14} /> Edit</Button>
+                {canManageDream(dream) && (
+                  <Button size="sm" onClick={() => openEdit(dream)}><Pencil size={14} /> Edit</Button>
+                )}
                 {dream.status !== 'Completed' && (
                   <>
                     <Button size="sm" onClick={() => dreamOps.promote(dream.id)}>Promote to map</Button>
@@ -253,7 +263,9 @@ export default function Someday() {
                     </Button>
                   </>
                 )}
-                <Button size="sm" variant="danger" onClick={() => dreamOps.remove(dream.id)}>Delete</Button>
+                {canManageDream(dream) && (
+                  <Button size="sm" variant="danger" onClick={() => dreamOps.remove(dream.id, actor)}>Delete</Button>
+                )}
               </div>
             </Card>
           );

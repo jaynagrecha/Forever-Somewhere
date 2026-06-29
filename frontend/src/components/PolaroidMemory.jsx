@@ -16,6 +16,7 @@ export default function PolaroidMemory({
   onDownload,
   onPreview,
   onView,
+  canManage = true,
 }) {
   const tilt = tiltForId(memory.id);
   const isMilestone = memory.isMilestone || memory.is_milestone;
@@ -108,9 +109,13 @@ export default function PolaroidMemory({
                 View
               </Button>
             )}
-            <Button size="sm" onClick={() => onEdit?.(memory)}>Edit</Button>
+            {canManage && (
+              <Button size="sm" onClick={() => onEdit?.(memory)}>Edit</Button>
+            )}
             <Button size="sm" variant="secondary" onClick={() => onShare?.(memory)}>Share</Button>
-            <Button size="sm" variant="danger" onClick={() => onDelete?.(memory.id)}>Delete</Button>
+            {canManage && (
+              <Button size="sm" variant="danger" onClick={() => onDelete?.(memory.id)}>Delete</Button>
+            )}
             {memory.photos?.length > 0 && onDownload && (
               <Button size="sm" onClick={() => onDownload(memory)}>ZIP</Button>
             )}

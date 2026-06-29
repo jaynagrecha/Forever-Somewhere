@@ -7,7 +7,8 @@ import Modal from '../components/ui/Modal';
 import { TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions } from '../context/AuthContext';
+import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { canManageByAuthor } from '../utils/author';
 import DateNightDeck from '../components/DateNightDeck';
 import { api } from '../api/client';
 
@@ -20,13 +21,10 @@ export default function DateNight() {
   const { promptAnswers, promptOps } = useData();
   const { toast } = useToast();
   const authorOptions = useAuthorOptions();
-  const [prompts, setPrompts] = useState([]);
-  const [promptsLoading, setPromptsLoading] = useState(true);
-  const [promptsError, setPromptsError] = useState(false);
-  const [current, setCurrent] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [author, setAuthor] = useState('Us');
+  const { myName } = useMyName();
+  const defaultAuthor = usePartnerPicker(0);
+  const actor = myName || defaultAuthor;
+  const [author, setAuthor] = useState(actor);
 
   useEffect(() => {
     let active = true;
@@ -164,9 +162,11 @@ export default function DateNight() {
             <p className="text-sm text-muted">{a.question}</p>
             <p className="mt-3 whitespace-pre-wrap leading-relaxed">{a.answer}</p>
             <p className="mt-3 text-sm text-muted">— {a.author}</p>
-            <Button size="sm" variant="danger" className="mt-3" onClick={() => promptOps.remove(a.id)}>
-              Delete
-            </Button>
+            {canManageByAuthor(a, actor) && (
+              <Button size="sm" variant="danger" className="mt-3" onClick={() => promptOps.remove(a.id, actor)}>
+                Delete
+              </Button>
+            )}
           </Card>
         ))}
       </div>

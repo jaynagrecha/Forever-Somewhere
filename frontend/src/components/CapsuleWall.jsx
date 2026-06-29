@@ -2,7 +2,7 @@ import { Lock, Unlock, Clock } from 'lucide-react';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
 
-export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete, highlightId = null }) {
+export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete, canDelete, highlightId = null }) {
   const all = [
     ...locked.map((c) => ({ ...c, wallState: 'locked' })),
     ...ready.map((c) => ({ ...c, wallState: 'ready' })),
@@ -64,7 +64,7 @@ export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete, h
                   Open
                 </Button>
               )}
-              {c.wallState === 'locked' && (
+              {c.wallState === 'locked' && canDelete?.(c) && (
                 <Button size="sm" variant="danger" onClick={() => onDelete(c.id)}>
                   Delete
                 </Button>

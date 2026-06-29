@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.author_guard import assert_can_modify
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, DatePromptAnswer
@@ -58,6 +59,7 @@ def save_answer(
 @router.delete("/answers/{answer_id}", status_code=204)
 def delete_answer(
     answer_id: int,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> None:
@@ -66,6 +68,8 @@ def delete_answer(
         .filter(DatePromptAnswer.couple_id == couple.id, DatePromptAnswer.id == answer_id)
         .first()
     )
-    if row:
-        db.delete(row)
-        db.commit()
+    if not row:
+        raise HTTPException(status_code=404, detail="Answer not found")
+    assert_can_modify(author, row.author, couple)
+    db.delete(row)
+    db.commit()

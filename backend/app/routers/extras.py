@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core.author_guard import assert_can_modify
 from app.core.database import get_db
 from app.core.datetime_utils import utc_iso
 from app.core.season_utils import resolve_period_start
@@ -393,8 +394,7 @@ def delete_season(
     row = _season_entries(db, couple.id).filter(SeasonEntry.id == entry_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Season entry not found")
-    if row.author != author:
-        raise HTTPException(status_code=403, detail="You can only remove your own season entry")
+    assert_can_modify(author, row.author, couple)
     db.delete(row)
     db.commit()
 

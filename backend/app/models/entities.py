@@ -84,6 +84,7 @@ class Memory(Base):
     voice_url: Mapped[str] = mapped_column(String(512), default="")
     before_photo_json: Mapped[str] = mapped_column(Text, default="")
     after_photo_json: Mapped[str] = mapped_column(Text, default="")
+    added_by: Mapped[str] = mapped_column(String(64), default="Us")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -119,6 +120,7 @@ class Dream(Base):
     saved_amount: Mapped[float] = mapped_column(Float, default=0.0)
     wishlist_url: Mapped[str] = mapped_column(String(512), default="")
     votes_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_by: Mapped[str] = mapped_column(String(64), default="Us")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

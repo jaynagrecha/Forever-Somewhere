@@ -3,8 +3,10 @@ import random
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
+
+from app.core.author_guard import assert_can_modify
 
 from app.core.database import get_db
 from app.core.uploads import couple_upload_dir
@@ -92,6 +94,7 @@ def create_memory(
         voice_url=payload.voice_url,
         before_photo_json=json.dumps(payload.before_photo) if payload.before_photo else "",
         after_photo_json=json.dumps(payload.after_photo) if payload.after_photo else "",
+        added_by=payload.added_by or "Us",
     )
     db.add(row)
     db.flush()
@@ -113,12 +116,14 @@ def create_memory(
 def update_memory(
     memory_id: int,
     payload: MemoryUpdate,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> MemoryOut:
     row = _memories(db, couple.id).filter(Memory.id == memory_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Memory not found")
+    assert_can_modify(author, getattr(row, "added_by", None), couple)
 
     data = payload.model_dump(exclude_unset=True)
     if "date" in data:
@@ -160,12 +165,14 @@ def update_memory(
 @router.delete("/{memory_id}", status_code=204)
 def delete_memory(
     memory_id: int,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> None:
     row = _memories(db, couple.id).filter(Memory.id == memory_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Memory not found")
+    assert_can_modify(author, getattr(row, "added_by", None), couple)
     db.delete(row)
     db.commit()
 

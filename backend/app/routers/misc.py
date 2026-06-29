@@ -3,9 +3,10 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.author_guard import assert_can_modify
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, Dream, LoveNote, Memory, TimeCapsule, TripPin
@@ -74,11 +75,13 @@ def create_dream(
     data = payload.model_dump()
     checklist = data.pop("checklist", [])
     votes = data.pop("votes", {})
+    created_by = data.pop("created_by", "Us") or "Us"
     row = Dream(
         couple_id=couple.id,
-        **data,
+        created_by=created_by,
         checklist_json=json.dumps(checklist),
         votes_json=json.dumps(votes),
+        **data,
     )
     db.add(row)
     db.flush()
@@ -87,7 +90,7 @@ def create_dream(
         couple_id=couple.id,
         kind="dream",
         title=payload.title,
-        author="Us",
+        author=row.created_by,
         entity_id=row.id,
         route="/someday",
     )
@@ -117,12 +120,14 @@ def update_dream(
 @router_dreams.delete("/{dream_id}", status_code=204)
 def delete_dream(
     dream_id: int,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> None:
     row = db.query(Dream).filter(Dream.couple_id == couple.id, Dream.id == dream_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Dream not found")
+    assert_can_modify(author, getattr(row, "created_by", None), couple)
     db.delete(row)
     db.commit()
 
@@ -250,6 +255,7 @@ def open_capsule(
 @router_capsules.delete("/{capsule_id}", status_code=204)
 def delete_capsule(
     capsule_id: int,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> None:
@@ -260,6 +266,7 @@ def delete_capsule(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Capsule not found")
+    assert_can_modify(author, row.author, couple)
     db.delete(row)
     db.commit()
 

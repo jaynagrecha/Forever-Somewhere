@@ -6,8 +6,9 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { api, isApiAvailable } from '../api/client';
+import { api, ApiError, isApiAvailable } from '../api/client';
 import { useAuth } from './AuthContext';
+import { canManageByAuthor } from '../utils/author';
 import { computeInsights, searchAll } from '../utils/insights';
 import { LS_KEYS } from '../utils/constants';
 import {
@@ -18,6 +19,16 @@ import {
   wasMigrated,
   writeLocal,
 } from '../utils/storage';
+
+function assertCanManage(items, id, author, pickItem = (list, itemId) => list.find((x) => x.id === itemId)) {
+  if (!author) {
+    throw new ApiError('Set who you are in Settings before changing entries', 400);
+  }
+  const item = pickItem(items, id);
+  if (item && !canManageByAuthor(item, author)) {
+    throw new ApiError('You can only change your own entries', 403);
+  }
+}
 
 const DataContext = createContext(null);
 
@@ -152,9 +163,10 @@ export function DataProvider({ children }) {
         persistLocal(LS_KEYS.memories, next);
         return item;
       },
-      update: async (id, payload) => {
+      update: async (id, payload, author) => {
+        assertCanManage(memories, id, author);
         if (online) {
-          const updated = await api.updateMemory(id, payload);
+          const updated = await api.updateMemory(id, payload, author);
           setMemories((prev) => prev.map((m) => (m.id === id ? normalizeMemory(updated) : m)));
           return normalizeMemory(updated);
         }
@@ -162,8 +174,9 @@ export function DataProvider({ children }) {
         setMemories(next);
         persistLocal(LS_KEYS.memories, next);
       },
-      remove: async (id) => {
-        if (online) await api.deleteMemory(id);
+      remove: async (id, author) => {
+        assertCanManage(memories, id, author);
+        if (online) await api.deleteMemory(id, author);
         const next = memories.filter((m) => m.id !== id);
         setMemories(next);
         if (!online) persistLocal(LS_KEYS.memories, next);
@@ -220,8 +233,9 @@ export function DataProvider({ children }) {
         setDreams(next);
         persistLocal(LS_KEYS.dreams, next);
       },
-      remove: async (id) => {
-        if (online) await api.deleteDream(id);
+      remove: async (id, author) => {
+        assertCanManage(dreams, id, author);
+        if (online) await api.deleteDream(id, author);
         const next = dreams.filter((d) => d.id !== id);
         setDreams(next);
         if (!online) persistLocal(LS_KEYS.dreams, next);
@@ -292,8 +306,9 @@ export function DataProvider({ children }) {
         setCapsules(next);
         persistLocal(LS_KEYS.capsules, next);
       },
-      remove: async (id) => {
-        if (online) await api.deleteCapsule(id);
+      remove: async (id, author) => {
+        assertCanManage(capsules, id, author);
+        if (online) await api.deleteCapsule(id, author);
         const next = capsules.filter((c) => c.id !== id);
         setCapsules(next);
         if (!online) persistLocal(LS_KEYS.capsules, next);
@@ -316,8 +331,9 @@ export function DataProvider({ children }) {
         persistLocal(LS_KEYS.loveNotes, next);
         return item;
       },
-      remove: async (id) => {
-        if (online) await api.deleteLoveNote(id);
+      remove: async (id, author) => {
+        assertCanManage(loveNotes, id, author);
+        if (online) await api.deleteLoveNote(id, author);
         const next = loveNotes.filter((n) => n.id !== id);
         setLoveNotes(next);
         if (!online) persistLocal(LS_KEYS.loveNotes, next);
@@ -364,8 +380,9 @@ export function DataProvider({ children }) {
         persistLocal(LS_KEYS.promptAnswers, next);
         return item;
       },
-      remove: async (id) => {
-        if (online) await api.deletePromptAnswer(id);
+      remove: async (id, author) => {
+        assertCanManage(promptAnswers, id, author);
+        if (online) await api.deletePromptAnswer(id, author);
         const next = promptAnswers.filter((a) => a.id !== id);
         setPromptAnswers(next);
         if (!online) persistLocal(LS_KEYS.promptAnswers, next);

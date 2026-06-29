@@ -11,6 +11,7 @@ import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
 import SeasonColorPicker from '../components/SeasonColorPicker';
 import { formatPeriodLabel, groupEntriesByPeriod, isCurrentPeriod } from '../utils/season';
+import { canManageByAuthor } from '../utils/author';
 
 const emptyForm = {
   title: '',
@@ -242,7 +243,7 @@ export default function MoodBoard() {
                   <SeasonCard
                     key={entry.id}
                     entry={entry}
-                    editable={entry.author === author}
+                    editable={canManageByAuthor(entry, author)}
                     onEdit={startEdit}
                     onDelete={handleDelete}
                     deleting={deletingId === entry.id}
@@ -346,7 +347,7 @@ export default function MoodBoard() {
                     <SeasonCard
                       key={entry.id}
                       entry={entry}
-                      editable={entry.author === author}
+                      editable={canManageByAuthor(entry, author)}
                       onEdit={startEdit}
                       onDelete={handleDelete}
                       deleting={deletingId === entry.id}

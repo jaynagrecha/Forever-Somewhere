@@ -9,7 +9,8 @@ import Modal from '../components/ui/Modal';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
+import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { canManageByAuthor } from '../utils/author';
 import { api } from '../api/client';
 import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
@@ -58,7 +59,9 @@ export default function Moments() {
   const { memories, memoryOps, dreamOps, online } = useData();
   const { toast } = useToast();
   const authorOptions = useAuthorOptions();
+  const { myName } = useMyName();
   const defaultAuthor = usePartnerPicker(0);
+  const actor = myName || defaultAuthor;
   const [params, setParams] = useSearchParams();
 
   const [showForm, setShowForm] = useState(() => readSearchParams().get('new') === '1');
@@ -159,6 +162,7 @@ export default function Moments() {
       milestone_type: m.milestoneType || m.milestone_type || '💍 Engagement',
       playlist_url: m.playlist_url || '',
       tags: m.tags || [],
+      added_by: m.added_by || m.addedBy || defaultAuthor,
     });
     setLocationQuery(m.location || '');
     setShowForm(true);
@@ -195,9 +199,14 @@ export default function Moments() {
     if (!form.title.trim()) return toast('Enter a title', 'error');
     if (form.lat == null) return toast('Pick a location from suggestions', 'error');
 
-    const payload = { ...form, is_milestone: form.is_milestone, milestone_type: form.milestone_type };
+    const payload = {
+      ...form,
+      added_by: form.added_by || actor,
+      is_milestone: form.is_milestone,
+      milestone_type: form.milestone_type,
+    };
     try {
-      if (editingId) await memoryOps.update(editingId, payload);
+      if (editingId) await memoryOps.update(editingId, payload, actor);
       else await memoryOps.create(payload);
 
       if (linkedDreamId) {
@@ -345,10 +354,11 @@ export default function Moments() {
                 <PolaroidMemory
                   memory={m}
                   photoSrc={photoSrc}
+                  canManage={canManageByAuthor(m, actor)}
                   onView={setPickedDetailMemory}
                   onEdit={openEdit}
                   onShare={shareMemoryCard}
-                  onDelete={(id) => memoryOps.remove(id)}
+                  onDelete={(id) => memoryOps.remove(id, actor)}
                   onDownload={downloadZip}
                   onPreview={setPreview}
                 />
@@ -465,9 +475,11 @@ export default function Moments() {
               </div>
             )}
             <div className="flex flex-wrap gap-2 pt-2">
-              <Button variant="secondary" onClick={() => { openEdit(activeDetailMemory); closeDetailMemory(); }}>
-                Edit memory
-              </Button>
+              {canManageByAuthor(activeDetailMemory, actor) && (
+                <Button variant="secondary" onClick={() => { openEdit(activeDetailMemory); closeDetailMemory(); }}>
+                  Edit memory
+                </Button>
+              )}
               <Button onClick={closeDetailMemory}>Close</Button>
             </div>
           </div>

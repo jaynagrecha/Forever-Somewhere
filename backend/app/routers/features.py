@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.author_guard import assert_can_modify
 from app.core.datetime_utils import days_until
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
@@ -91,12 +92,14 @@ def create_love_note(
 @router.delete("/love-notes/{note_id}", status_code=204)
 def delete_love_note(
     note_id: int,
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> None:
     row = db.query(LoveNote).filter(LoveNote.couple_id == couple.id, LoveNote.id == note_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Note not found")
+    assert_can_modify(author, row.author, couple)
     db.delete(row)
     db.commit()
 

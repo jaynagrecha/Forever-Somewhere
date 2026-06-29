@@ -130,6 +130,7 @@ def run_migrations() -> None:
             _add_col(conn, "memories", "voice_url", "voice_url VARCHAR(512) DEFAULT ''", cols)
             _add_col(conn, "memories", "before_photo_json", "before_photo_json TEXT DEFAULT ''", cols)
             _add_col(conn, "memories", "after_photo_json", "after_photo_json TEXT DEFAULT ''", cols)
+            _add_col(conn, "memories", "added_by", "added_by VARCHAR(64) DEFAULT 'Us'", cols)
             _add_col(conn, "memories", "couple_id", "couple_id INTEGER", cols)
 
         if "dreams" in tables:
@@ -139,6 +140,7 @@ def run_migrations() -> None:
             _add_col(conn, "dreams", "saved_amount", "saved_amount FLOAT DEFAULT 0", cols)
             _add_col(conn, "dreams", "wishlist_url", "wishlist_url VARCHAR(512) DEFAULT ''", cols)
             _add_col(conn, "dreams", "votes_json", "votes_json TEXT DEFAULT '{}'", cols)
+            _add_col(conn, "dreams", "created_by", "created_by VARCHAR(64) DEFAULT 'Us'", cols)
             _add_col(conn, "dreams", "couple_id", "couple_id INTEGER", cols)
 
         if "time_capsules" in tables:

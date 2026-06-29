@@ -10,14 +10,15 @@ import CapsuleWall from '../components/CapsuleWall';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions } from '../context/AuthContext';
+import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { canManageByAuthor } from '../utils/author';
 import { MOOD_OPTIONS } from '../utils/constants';
 import { api } from '../api/client';
 import { resolveMediaUrl } from '../utils/media';
 import { romanceUnlock } from '../utils/romanceSounds';
 
-const emptyCapsule = { title: '', content: '', unlock_date: '', author: 'Us', media_url: '', media_type: '' };
-const emptyNote = { content: '', author: 'Us', mood: '', voice_url: '', letter_template: '', reveal_date: '' };
+const buildEmptyCapsule = (author) => ({ title: '', content: '', unlock_date: '', author, media_url: '', media_type: '' });
+const buildEmptyNote = (author) => ({ content: '', author, mood: '', voice_url: '', letter_template: '', reveal_date: '' });
 
 const LETTER_TEMPLATES = {
   '': 'Free write',
@@ -39,6 +40,9 @@ export default function Forever() {
   const { capsules, capsuleOps, loveNotes, noteOps, online } = useData();
   const { toast } = useToast();
   const authorOptions = useAuthorOptions();
+  const { myName } = useMyName();
+  const defaultAuthor = usePartnerPicker(0);
+  const actor = myName || defaultAuthor;
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('tab') === 'notes' ? 'notes' : 'capsules');
 
@@ -46,8 +50,8 @@ export default function Forever() {
   const [showNoteForm, setShowNoteForm] = useState(
     params.get('tab') === 'notes' && params.get('new') === '1'
   );
-  const [capsuleForm, setCapsuleForm] = useState(emptyCapsule);
-  const [noteForm, setNoteForm] = useState(emptyNote);
+  const [capsuleForm, setCapsuleForm] = useState(() => buildEmptyCapsule(defaultAuthor));
+  const [noteForm, setNoteForm] = useState(() => buildEmptyNote(defaultAuthor));
   const [opened, setOpened] = useState(null);
   const [moodPrompts, setMoodPrompts] = useState([]);
   const deepLinkHandled = useRef('');
@@ -136,10 +140,10 @@ export default function Forever() {
       return toast('Add a letter or voice/video message', 'error');
     }
     try {
-      await capsuleOps.create(capsuleForm);
+      await capsuleOps.create({ ...capsuleForm, author: capsuleForm.author || actor });
       toast('Time capsule sealed', 'success');
       setShowCapsuleForm(false);
-      setCapsuleForm(emptyCapsule);
+      setCapsuleForm(buildEmptyCapsule(actor));
     } catch {
       toast('Could not seal capsule', 'error');
     }
@@ -202,10 +206,10 @@ export default function Forever() {
   async function saveNote() {
     if (!noteForm.content.trim()) return toast('Write something', 'error');
     try {
-      await noteOps.create(noteForm);
+      await noteOps.create({ ...noteForm, author: noteForm.author || actor });
       toast('Love note saved', 'success');
       setShowNoteForm(false);
-      setNoteForm(emptyNote);
+      setNoteForm(buildEmptyNote(actor));
     } catch {
       toast('Save failed', 'error');
     }
@@ -242,7 +246,8 @@ export default function Forever() {
             opened={openedList}
             highlightId={effectiveHighlightCapsuleId}
             onOpen={openCapsule}
-            onDelete={(id) => capsuleOps.remove(id)}
+            onDelete={(id) => capsuleOps.remove(id, actor)}
+            canDelete={(c) => canManageByAuthor(c, actor)}
           />
 
           {openedList.length > 0 && (
@@ -289,7 +294,9 @@ export default function Forever() {
                 <p className="mt-3 whitespace-pre-wrap leading-relaxed">{n.content}</p>
                 {n.voice_url && <audio controls className="mt-3 w-full" src={resolveMediaUrl(n.voice_url)} />}
                 <p className="mt-4 text-sm text-muted">— {n.author}</p>
-                <Button size="sm" variant="danger" className="mt-3" onClick={() => noteOps.remove(n.id)}>Delete</Button>
+                {canManageByAuthor(n, actor) && (
+                  <Button size="sm" variant="danger" className="mt-3" onClick={() => noteOps.remove(n.id, actor)}>Delete</Button>
+                )}
               </Card>
             ))}
           </div>

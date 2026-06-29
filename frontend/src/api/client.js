@@ -79,6 +79,12 @@ export function formatApiError(err) {
   return err?.message || 'Request failed';
 }
 
+function withAuthorQuery(path, author) {
+  if (!author) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}author=${encodeURIComponent(author)}`;
+}
+
 async function request(path, options = {}) {
   const apiBase = getApiBase();
   const headers = { ...options.headers };
@@ -140,9 +146,9 @@ export const api = {
 
   getMemories: () => request('/api/memories'),
   createMemory: (data) => request('/api/memories', { method: 'POST', body: JSON.stringify(data) }),
-  updateMemory: (id, data) =>
-    request(`/api/memories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteMemory: (id) => request(`/api/memories/${id}`, { method: 'DELETE' }),
+  updateMemory: (id, data, author) =>
+    request(withAuthorQuery(`/api/memories/${id}`, author), { method: 'PUT', body: JSON.stringify(data) }),
+  deleteMemory: (id, author) => request(withAuthorQuery(`/api/memories/${id}`, author), { method: 'DELETE' }),
   uploadPhoto: async (file) => {
     const form = new FormData();
     form.append('file', file);
@@ -161,13 +167,13 @@ export const api = {
   getDreams: () => request('/api/dreams'),
   createDream: (data) => request('/api/dreams', { method: 'POST', body: JSON.stringify(data) }),
   updateDream: (id, data) => request(`/api/dreams/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteDream: (id) => request(`/api/dreams/${id}`, { method: 'DELETE' }),
+  deleteDream: (id, author) => request(withAuthorQuery(`/api/dreams/${id}`, author), { method: 'DELETE' }),
   promoteDream: (id) => request(`/api/dreams/${id}/promote-to-map`, { method: 'POST' }),
 
   getCapsules: () => request('/api/capsules'),
   createCapsule: (data) => request('/api/capsules', { method: 'POST', body: JSON.stringify(data) }),
   openCapsule: (id) => request(`/api/capsules/${id}/open`, { method: 'POST' }),
-  deleteCapsule: (id) => request(`/api/capsules/${id}`, { method: 'DELETE' }),
+  deleteCapsule: (id, author) => request(withAuthorQuery(`/api/capsules/${id}`, author), { method: 'DELETE' }),
   uploadCapsuleMedia: async (file) => {
     const form = new FormData();
     form.append('file', file);
@@ -181,7 +187,7 @@ export const api = {
 
   getLoveNotes: () => request('/api/love-notes'),
   createLoveNote: (data) => request('/api/love-notes', { method: 'POST', body: JSON.stringify(data) }),
-  deleteLoveNote: (id) => request(`/api/love-notes/${id}`, { method: 'DELETE' }),
+  deleteLoveNote: (id, author) => request(withAuthorQuery(`/api/love-notes/${id}`, author), { method: 'DELETE' }),
 
   getImportantDates: () => request('/api/important-dates'),
   createImportantDate: (data) =>
@@ -192,7 +198,8 @@ export const api = {
   getPromptAnswers: () => request('/api/prompts/answers'),
   savePromptAnswer: (data) =>
     request('/api/prompts/answers', { method: 'POST', body: JSON.stringify(data) }),
-  deletePromptAnswer: (id) => request(`/api/prompts/answers/${id}`, { method: 'DELETE' }),
+  deletePromptAnswer: (id, author) =>
+    request(withAuthorQuery(`/api/prompts/answers/${id}`, author), { method: 'DELETE' }),
 
   getVapidKey: () => request('/api/push/vapid-public-key'),
   getPushStatus: () => request('/api/push/status'),
