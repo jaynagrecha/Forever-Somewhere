@@ -1,14 +1,30 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, setCoupleTokenGetter } from '../api/client';
+import { api, isUnauthorizedError, setCoupleTokenGetter } from '../api/client';
 
 const TOKEN_KEY = 'forever_couple_token';
+const COUPLE_CACHE_KEY = 'forever_couple_profile';
 const MY_NAME_KEY = 'forever_my_name';
 
 const AuthContext = createContext(null);
 
+function readCoupleCache() {
+  try {
+    const raw = localStorage.getItem(COUPLE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCoupleCache(couple) {
+  if (couple) {
+    localStorage.setItem(COUPLE_CACHE_KEY, JSON.stringify(couple));
+  }
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
-  const [couple, setCouple] = useState(null);
+  const [couple, setCouple] = useState(() => readCoupleCache());
   const [loading, setLoading] = useState(!!localStorage.getItem(TOKEN_KEY));
 
   const logout = useCallback(async () => {
@@ -20,12 +36,14 @@ export function AuthProvider({ children }) {
       /* revoke best-effort */
     }
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(COUPLE_CACHE_KEY);
     setToken(null);
     setCouple(null);
   }, []);
 
   const login = useCallback((session) => {
     localStorage.setItem(TOKEN_KEY, session.token);
+    writeCoupleCache(session.couple);
     setToken(session.token);
     setCouple(session.couple);
   }, []);
@@ -43,8 +61,18 @@ export function AuthProvider({ children }) {
     setLoading(true);
     api
       .getCoupleMe()
-      .then((profile) => setCouple(profile))
-      .catch(() => logout())
+      .then((profile) => {
+        setCouple(profile);
+        writeCoupleCache(profile);
+      })
+      .catch((err) => {
+        if (isUnauthorizedError(err)) {
+          logout();
+          return;
+        }
+        const cached = readCoupleCache();
+        if (cached) setCouple(cached);
+      })
       .finally(() => setLoading(false));
   }, [token, logout]);
 

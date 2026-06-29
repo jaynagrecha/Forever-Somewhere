@@ -41,6 +41,18 @@ const PUBLIC_PATHS = [
   '/api/recovery/backup',
 ];
 
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export function isUnauthorizedError(err) {
+  return err instanceof ApiError && err.status === 401;
+}
+
 async function request(path, options = {}) {
   const apiBase = getApiBase();
   const headers = { ...options.headers };
@@ -56,12 +68,17 @@ async function request(path, options = {}) {
   }
 
   const url = apiBase ? `${apiBase}${path}` : path;
-  const res = await fetch(url, { ...options, headers, cache: 'no-store', mode: 'cors' });
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers, cache: 'no-store', mode: 'cors' });
+  } catch (err) {
+    throw new ApiError(err.message || 'Network error', 0);
+  }
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const message = typeof err.detail === 'string' ? err.detail : err.detail?.msg || 'Request failed';
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
   return res.json();
 }
