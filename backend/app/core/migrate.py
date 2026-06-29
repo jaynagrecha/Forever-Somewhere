@@ -75,7 +75,9 @@ def _backfill_legacy_couple(conn) -> None:
     if "couple_meta" in tables:
         cols = {c["name"] for c in inspect(engine).get_columns("couple_meta")}
         if "couple_id" in cols:
-            old = conn.execute(text("SELECT id, mood_board_json, quiz_results_json FROM couple_meta LIMIT 1")).fetchone()
+            old = conn.execute(
+                text("SELECT mood_board_json, quiz_results_json FROM couple_meta LIMIT 1")
+            ).fetchone()
             if old:
                 conn.execute(text("DELETE FROM couple_meta"))
                 conn.execute(
@@ -83,16 +85,28 @@ def _backfill_legacy_couple(conn) -> None:
                         "INSERT INTO couple_meta (couple_id, mood_board_json, quiz_results_json) "
                         "VALUES (:cid, :m, :q)"
                     ),
-                    {"cid": couple_id, "m": old[1] or "[]", "q": old[2] or "[]"},
+                    {"cid": couple_id, "m": old[0] or "[]", "q": old[1] or "[]"},
                 )
-        else:
-            conn.execute(
-                text(
-                    "INSERT OR IGNORE INTO couple_meta (couple_id, mood_board_json, quiz_results_json) "
-                    "VALUES (:cid, '[]', '[]')"
-                ),
-                {"cid": couple_id},
-            )
+            else:
+                conn.execute(
+                    text(
+                        "INSERT OR IGNORE INTO couple_meta (couple_id, mood_board_json, quiz_results_json) "
+                        "VALUES (:cid, '[]', '[]')"
+                    ),
+                    {"cid": couple_id},
+                )
+        elif "id" in cols:
+            old = conn.execute(
+                text("SELECT mood_board_json, quiz_results_json FROM couple_meta LIMIT 1")
+            ).fetchone()
+            if old:
+                conn.execute(
+                    text(
+                        "INSERT OR IGNORE INTO couple_meta (couple_id, mood_board_json, quiz_results_json) "
+                        "VALUES (:cid, :m, :q)"
+                    ),
+                    {"cid": couple_id, "m": old[0] or "[]", "q": old[1] or "[]"},
+                )
 
     logger.warning(
         "Legacy data migrated to couple space id=%s invite=%s — partners must join with this code",
@@ -181,9 +195,13 @@ def run_migrations() -> None:
 
         tables = inspect(engine).get_table_names()
         if "couple_spaces" in tables:
-            _backfill_legacy_couple(conn)
-            _migrate_couple_sessions(conn)
-            conn.commit()
+            try:
+                _backfill_legacy_couple(conn)
+                _migrate_couple_sessions(conn)
+                conn.commit()
+            except Exception as exc:
+                logger.exception("Couple backfill migration skipped: %s", exc)
+                conn.rollback()
 
 
 def _migrate_couple_sessions(conn) -> None:
