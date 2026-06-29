@@ -66,6 +66,7 @@ export const api = {
   joinCoupleSpace: (data) =>
     request('/api/couples/join', { method: 'POST', body: JSON.stringify(data) }),
   getCoupleMe: () => request('/api/couples/me'),
+  logoutCouple: () => request('/api/couples/logout', { method: 'POST' }),
   refreshCoupleToken: () => request('/api/couples/refresh-token', { method: 'POST' }),
   getStats: () => request('/api/stats'),
   getOnThisDay: () => request('/api/memories/on-this-day'),

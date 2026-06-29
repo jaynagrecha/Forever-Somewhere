@@ -106,7 +106,7 @@ export default function Settings() {
             >
               Copy invite code
             </Button>
-            <Button variant="danger" onClick={() => { logout(); window.location.href = '/'; }}>
+            <Button variant="danger" onClick={async () => { await logout(); window.location.href = '/'; }}>
               Sign out on this device
             </Button>
           </div>

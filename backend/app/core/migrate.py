@@ -182,4 +182,34 @@ def run_migrations() -> None:
         tables = inspect(engine).get_table_names()
         if "couple_spaces" in tables:
             _backfill_legacy_couple(conn)
+            _migrate_couple_sessions(conn)
             conn.commit()
+
+
+def _migrate_couple_sessions(conn) -> None:
+    """Move legacy single-token hashes into couple_sessions (one row per couple)."""
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    if "couple_sessions" not in tables or "couple_spaces" not in tables:
+        return
+
+    rows = conn.execute(
+        text("SELECT id, token_hash FROM couple_spaces WHERE token_hash IS NOT NULL AND token_hash != ''")
+    ).fetchall()
+    for couple_id, token_hash in rows:
+        exists = conn.execute(
+            text("SELECT 1 FROM couple_sessions WHERE couple_id = :cid AND token_hash = :h LIMIT 1"),
+            {"cid": couple_id, "h": token_hash},
+        ).fetchone()
+        if not exists:
+            conn.execute(
+                text(
+                    "INSERT INTO couple_sessions (couple_id, token_hash, created_at) "
+                    "VALUES (:cid, :h, datetime('now'))"
+                ),
+                {"cid": couple_id, "h": token_hash},
+            )
+        conn.execute(
+            text("UPDATE couple_spaces SET token_hash = '' WHERE id = :cid"),
+            {"cid": couple_id},
+        )

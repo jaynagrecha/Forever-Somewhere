@@ -16,8 +16,19 @@ class CoupleSpace(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     partner1_name: Mapped[str] = mapped_column(String(64), nullable=False)
     partner2_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), default="")
     password_hash: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CoupleSession(Base):
+    """One login per device — many sessions per couple space."""
+
+    __tablename__ = "couple_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

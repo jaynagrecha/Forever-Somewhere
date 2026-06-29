@@ -11,8 +11,8 @@ from app.core.migrate import run_migrations
 from app.routers import couples, extras, features, memories, misc, prompts, push, trip_pins
 from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
-run_migrations()
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 app = FastAPI(title=settings.app_name)
 

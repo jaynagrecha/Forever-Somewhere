@@ -10,7 +10,14 @@ export function AuthProvider({ children }) {
   const [couple, setCouple] = useState(null);
   const [loading, setLoading] = useState(!!localStorage.getItem(TOKEN_KEY));
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      if (localStorage.getItem(TOKEN_KEY)) {
+        await api.logoutCouple();
+      }
+    } catch {
+      /* revoke best-effort */
+    }
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setCouple(null);
