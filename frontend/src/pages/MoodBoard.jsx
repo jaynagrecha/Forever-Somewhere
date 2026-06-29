@@ -32,7 +32,7 @@ function SeasonCard({ entry, editable, onEdit, onDelete, deleting }) {
           className="mb-4 max-h-72 w-full rounded-xl object-cover"
         />
       )}
-      <p className="text-xs uppercase tracking-widest text-muted">{entry.author}</p>
+      <p className="text-xs uppercase tracking-widest text-muted">{entry.author}&apos;s mood</p>
       <h3 className="mt-1 font-display text-2xl leading-snug">{entry.title}</h3>
       {entry.description && (
         <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted">{entry.description}</p>
@@ -221,10 +221,6 @@ export default function MoodBoard() {
           <div>
             <p className="text-xs uppercase tracking-widest text-accent-soft">Current {periodType}</p>
             <h2 className="font-display text-2xl">{periodLabel}</h2>
-            <p className="mt-1 text-sm text-muted">
-              Sharing as <span className="text-accent-soft">{author}</span>
-              {needsSetup && !myName && ' — lock identity in Settings for consistency'}
-            </p>
           </div>
           <Sparkles className="text-accent-soft/60" size={28} />
         </div>
@@ -262,6 +258,10 @@ export default function MoodBoard() {
           {editingId ? 'Update your mood' : 'Share your mood'}
         </h2>
         <p className="mt-1 text-sm text-muted">
+          You&apos;re posting as <span className="text-accent-soft">{author}</span>
+          {needsSetup && !myName && ' — set who you are in Settings first'}
+        </p>
+        <p className="mt-2 text-sm text-muted">
           A title, a colour, and any photo — memory, selfie, meme, screenshot — that fits how you feel.
         </p>
 

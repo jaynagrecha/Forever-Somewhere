@@ -4,13 +4,16 @@ import { Palette, ChevronRight } from 'lucide-react';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { api } from '../api/client';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useMyName, usePartnerPicker } from '../context/AuthContext';
 import { formatPeriodLabel } from '../utils/season';
 import { resolveMediaUrl } from '../utils/media';
 
 export default function OurSeasonWidget() {
   const navigate = useNavigate();
   const { partnerNames } = useAuth();
+  const { myName } = useMyName();
+  const defaultAuthor = usePartnerPicker(0);
+  const author = myName || defaultAuthor;
   const [periodType] = useState('week');
   const [data, setData] = useState(null);
 
@@ -25,6 +28,8 @@ export default function OurSeasonWidget() {
 
   const names = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   const missing = names.filter((n) => !current.some((e) => e.author === n));
+  const myEntry = current.find((e) => e.author === author);
+  const buttonLabel = myEntry ? 'Update your mood' : 'Share your mood';
 
   return (
     <Card
@@ -65,7 +70,7 @@ export default function OurSeasonWidget() {
                 />
               )}
               <div className="p-3">
-                <p className="text-xs text-muted">{entry.author}</p>
+                <p className="text-xs uppercase tracking-widest text-muted">{entry.author}&apos;s mood</p>
                 <p className="font-display text-lg leading-snug">{entry.title}</p>
               </div>
             </div>
@@ -88,7 +93,7 @@ export default function OurSeasonWidget() {
           navigate('/mood-board');
         }}
       >
-        {current.some((e) => e.author) ? 'Update our season' : 'Share your mood'}
+        {buttonLabel}
       </Button>
     </Card>
   );
