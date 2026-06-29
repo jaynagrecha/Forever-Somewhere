@@ -233,7 +233,6 @@ class LoveNoteCreate(BaseModel):
     mood: str = ""
     voice_url: str = ""
     letter_template: str = ""
-    reveal_date: str = ""
 
 
 class LoveNoteOut(LoveNoteCreate):
@@ -251,7 +250,6 @@ class LoveNoteOut(LoveNoteCreate):
             mood=row.mood or "",
             voice_url=getattr(row, "voice_url", "") or "",
             letter_template=getattr(row, "letter_template", "") or "",
-            reveal_date=row.reveal_date.isoformat() if getattr(row, "reveal_date", None) else "",
             created_at=row.created_at,
         )
 

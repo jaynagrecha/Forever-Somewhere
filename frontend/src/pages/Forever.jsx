@@ -19,7 +19,7 @@ import { resolveMediaUrl } from '../utils/media';
 import { romanceUnlock } from '../utils/romanceSounds';
 
 const buildEmptyCapsule = (author) => ({ title: '', content: '', unlock_date: '', author, media_url: '', media_type: '' });
-const buildEmptyNote = (author) => ({ content: '', author, mood: '', voice_url: '', letter_template: '', reveal_date: '' });
+const buildEmptyNote = (author) => ({ content: '', author, mood: '', voice_url: '', letter_template: '' });
 
 const LETTER_TEMPLATES = {
   '': 'Free write',
@@ -353,12 +353,6 @@ export default function Forever() {
           </div>
         )}
 
-        <Input
-          label="Reveal on (optional — scheduled note)"
-          type="date"
-          value={noteForm.reveal_date}
-          onChange={(e) => setNoteForm({ ...noteForm, reveal_date: e.target.value })}
-        />
         <TextArea label="Note" value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })} placeholder="Thinking of you today because…" />
         <label className="mt-4 block text-sm text-muted">
           <Mic size={14} className="inline" /> Voice note
