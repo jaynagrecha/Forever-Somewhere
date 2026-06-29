@@ -284,8 +284,18 @@ export default function Moments() {
       </div>
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={editingId ? 'Edit Memory' : 'Add Memory'} wide>
-        <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-        <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        <div className="sticky top-0 z-10 -mx-6 mb-6 space-y-4 border-b border-white/10 bg-card px-6 pb-5 md:-mx-8 md:px-8">
+          <Input
+            label="Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="Our engagement day…"
+            autoFocus
+          />
+          <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        </div>
+
+        <div className="space-y-4">
         <LocationSearch value={locationQuery} onChange={setLocationQuery} onSelect={(loc) => setForm({ ...form, location: loc.title, lat: loc.lat, lng: loc.lng })} />
         <Input label="Spotify / playlist URL" value={form.playlist_url} onChange={(e) => setForm({ ...form, playlist_url: e.target.value })} placeholder="https://open.spotify.com/..." />
         <div className="mt-4">
@@ -329,9 +339,10 @@ export default function Moments() {
           <input type="file" multiple accept="image/*" className="mt-2 block w-full text-sm" onChange={handlePhotos} />
         </label>
         <TextArea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        <div className="mt-6 flex gap-3">
+        <div className="flex gap-3 pt-2">
           <Button variant="primary" onClick={save}>Save</Button>
           <Button onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
+        </div>
         </div>
       </Modal>
 
