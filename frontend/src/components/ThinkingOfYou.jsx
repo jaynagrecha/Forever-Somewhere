@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Heart, UserCircle } from 'lucide-react';
 import Button from './ui/Button';
 import Card from './ui/Card';
-import { Select } from './ui/Input';
 import { useMyName } from '../context/AuthContext';
 import { useActivity } from '../context/ActivityContext';
 import { useToast } from '../context/ToastContext';
@@ -11,7 +10,7 @@ import { romancePing } from '../utils/romanceSounds';
 
 export default function ThinkingOfYou() {
   const { toast } = useToast();
-  const { myName, setMyName, partnerNames, needsSetup } = useMyName();
+  const { myName, setMyName, partnerNames, needsSetup, identityLocked } = useMyName();
   const { refreshActivity } = useActivity();
   const [busy, setBusy] = useState(false);
   const [lastPing, setLastPing] = useState(null);
@@ -34,6 +33,19 @@ export default function ThinkingOfYou() {
     }
   }
 
+  function pickIdentity(name) {
+    const other = partnerNames.find((n) => n !== name) || 'your partner';
+    const ok = window.confirm(
+      `This device will permanently be ${name}. You cannot switch to ${other} on this phone later.\n\nContinue?`
+    );
+    if (!ok) return;
+    if (!setMyName(name)) {
+      toast('Identity already locked on this device', 'error');
+      return;
+    }
+    toast(`This device is locked to ${name}`, 'success');
+  }
+
   return (
     <Card highlight className="mb-6 border-accent/25 bg-gradient-to-br from-accent/10 to-transparent">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -44,27 +56,25 @@ export default function ThinkingOfYou() {
             They&apos;ll see who sent it in the activity feed — and get a push if enabled.
           </p>
 
-          {partnerNames.length >= 2 && (
-            <div className="mt-4 max-w-xs">
-              <Select
-                label="Sending as (this device)"
-                value={myName}
-                onChange={(e) => {
-                  setMyName(e.target.value);
-                  toast(`This device is now ${e.target.value}`, 'success');
-                }}
-              >
-                <option value="">— Choose —</option>
-                {partnerNames.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </Select>
+          {identityLocked && (
+            <p className="mt-4 text-sm text-muted">
+              Sending as <strong className="text-white">{myName}</strong>
+            </p>
+          )}
+
+          {needsSetup && partnerNames.length >= 2 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {partnerNames.map((n) => (
+                <Button key={n} size="sm" variant="secondary" onClick={() => pickIdentity(n)}>
+                  I am {n}
+                </Button>
+              ))}
             </div>
           )}
 
           {needsSetup && (
             <p className="mt-2 flex items-center gap-1 text-xs text-gold">
-              <UserCircle size={14} /> Pick your name so pings aren&apos;t always credited to {partnerNames[0]}.
+              <UserCircle size={14} /> Pick your name once — this device stays locked to that person.
             </p>
           )}
 

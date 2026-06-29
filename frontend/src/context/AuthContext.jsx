@@ -140,16 +140,17 @@ export function useMyName() {
 
   const setMyName = useCallback(
     (name) => {
-      if (name && names.includes(name)) {
-        localStorage.setItem(MY_NAME_KEY, name);
-        setMyNameState(name);
-      } else if (!name) {
-        localStorage.removeItem(MY_NAME_KEY);
-        setMyNameState('');
-      }
+      if (!name || !names.includes(name)) return false;
+      const stored = localStorage.getItem(MY_NAME_KEY);
+      if (stored) return stored === name;
+      localStorage.setItem(MY_NAME_KEY, name);
+      setMyNameState(name);
+      return true;
     },
     [names]
   );
+
+  const identityLocked = Boolean(myName && names.includes(myName));
 
   return useMemo(
     () => ({
@@ -157,7 +158,8 @@ export function useMyName() {
       setMyName,
       partnerNames: names,
       needsSetup: names.length >= 2 && !myName,
+      identityLocked,
     }),
-    [myName, setMyName, names]
+    [myName, setMyName, names, identityLocked]
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield } from 'lucide-react';
+import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield, Lock } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -38,7 +38,7 @@ export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
   const { toast } = useToast();
   const { inviteCode, displayName, logout, partnerNames } = useAuth();
-  const { myName, setMyName } = useMyName();
+  const { myName, setMyName, identityLocked } = useMyName();
   const { theme, setTheme, seasonalThemes } = useTheme();
   const { locale, setLocale } = useLocale();
   const [annTitle, setAnnTitle] = useState('');
@@ -245,24 +245,47 @@ export default function Settings() {
             <Smartphone className="mb-3 text-accent-soft" size={24} />
             <h2 className="font-display text-xl">Who&apos;s on this device?</h2>
             <p className="mt-2 text-sm text-muted">
-              Each phone or browser remembers its own name — so pings, daily answers, and quiz replies
-              show the right person. Jay picks Jay on his phone; Ikshika picks Ikshika on hers.
+              Choose once per phone or browser — locked forever on this device. Jay on his phone;
+              Ikshika on hers. Does not affect account recovery above (each partner has their own row).
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {partnerNames.map((name) => (
-                <Button
-                  key={name}
-                  variant={myName === name ? 'primary' : 'secondary'}
-                  onClick={async () => {
-                    setMyName(name);
-                    toast(`This device is ${name}`, 'success');
-                    if (notifOn) await ensurePushRegistered();
-                  }}
-                >
-                  I am {name}
-                </Button>
-              ))}
-            </div>
+            {identityLocked ? (
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3">
+                <Lock className="shrink-0 text-accent-soft" size={20} />
+                <div>
+                  <p className="font-medium text-white">This device is {myName}</p>
+                  <p className="text-xs text-muted">Identity locked — use your partner&apos;s own phone for their name.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p className="text-xs text-amber-200/90">
+                  Choose carefully — you cannot switch to your partner&apos;s name on this device later.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {partnerNames.map((name) => (
+                    <Button
+                      key={name}
+                      variant="secondary"
+                      onClick={async () => {
+                        const other = partnerNames.find((n) => n !== name) || 'your partner';
+                        const ok = window.confirm(
+                          `This device will permanently be ${name}. You cannot switch to ${other} on this phone later.\n\nContinue?`
+                        );
+                        if (!ok) return;
+                        if (!setMyName(name)) {
+                          toast('Identity already locked on this device', 'error');
+                          return;
+                        }
+                        toast(`This device is locked to ${name}`, 'success');
+                        if (notifOn) await ensurePushRegistered();
+                      }}
+                    >
+                      I am {name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
