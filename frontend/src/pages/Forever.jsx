@@ -12,6 +12,7 @@ import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { usePostingAuthor } from '../context/AuthContext';
 import PostingAs from '../components/PostingAs';
+import { useActivity } from '../context/ActivityContext';
 import { canManageByAuthor } from '../utils/author';
 import { MOOD_OPTIONS } from '../utils/constants';
 import { api, formatApiError } from '../api/client';
@@ -41,6 +42,7 @@ export default function Forever() {
   const { capsules, capsuleOps, loveNotes, noteOps, online } = useData();
   const { toast } = useToast();
   const { author: actor, needsSetup } = usePostingAuthor();
+  const { refreshActivity } = useActivity();
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('tab') === 'notes' ? 'notes' : 'capsules');
 
@@ -141,6 +143,7 @@ export default function Forever() {
     try {
       await capsuleOps.create({ ...capsuleForm, author: capsuleForm.author || actor });
       toast('Time capsule sealed', 'success');
+      refreshActivity();
       setShowCapsuleForm(false);
       setCapsuleForm(buildEmptyCapsule(actor));
     } catch (err) {
@@ -208,6 +211,7 @@ export default function Forever() {
     try {
       await noteOps.create({ ...noteForm, author: noteForm.author || actor });
       toast('Love note saved', 'success');
+      refreshActivity();
       setShowNoteForm(false);
       setNoteForm(buildEmptyNote(actor));
     } catch (err) {

@@ -2,7 +2,48 @@ const PREFS_KEY = 'forever_notifications_enabled';
 const SHOWN_KEY = 'forever_notifications_shown';
 const LAST_ACTIVITY_ID_KEY = 'forever_last_activity_id';
 import { MY_NAME_KEY } from '../utils/constants';
+import { ACTIVITY_REFRESH_EVENT } from '../context/ActivityContext';
+
 const VAPID_KEY = 'forever_vapid_key';
+
+export const PARTNER_ACTIVITY_TOAST_EVENT = 'forever-partner-activity-toast';
+
+export function formatPartnerActivityAlert(item) {
+  const author = item.author || 'Your partner';
+  const title = item.title || '';
+  switch (item.kind) {
+    case 'ping':
+      return { title: 'Thinking of you 💕', body: title };
+    case 'love_note':
+      return { title: 'Love note 💌', body: `${author} wrote you a note` };
+    case 'capsule':
+      return { title: 'Time capsule 🔒', body: `${author} sealed “${title}”` };
+    case 'memory':
+      return { title: 'New memory 📸', body: `${author} added “${title}”` };
+    case 'dream':
+      return { title: 'New dream ✨', body: `${author} added “${title}”` };
+    case 'trip_pin':
+      return { title: 'New map pin 📍', body: `${author} pinned “${title}”` };
+    case 'album':
+      return { title: 'Trip album 📁', body: `${author} created “${title}”` };
+    case 'season':
+      return { title: 'Our season 🎨', body: `${author} shared their mood` };
+    default:
+      return { title: 'Partner activity', body: `${author} — ${title}` };
+  }
+}
+
+function dispatchPartnerToast(alert, route) {
+  window.dispatchEvent(
+    new CustomEvent(PARTNER_ACTIVITY_TOAST_EVENT, {
+      detail: { ...alert, route: route || '/dashboard' },
+    })
+  );
+}
+
+function bumpActivityFeed() {
+  window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
+}
 
 export function notificationsEnabled() {
   return localStorage.getItem(PREFS_KEY) === 'true';
@@ -48,24 +89,67 @@ function recordNotificationTag(tag, activityId = null) {
   }
 }
 
-/** Sync activity cursor without showing banners (app is open — feed is visible). */
-async function syncActivityCursor() {
-  if (!notificationsEnabled()) return;
+function processPartnerActivityItems(items, { inAppToast = false, lockScreen = false } = {}) {
+  if (!items.length) return false;
 
+  const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
+  const myName = localStorage.getItem(MY_NAME_KEY) || '';
+  let newestId = lastSeen;
+  let hadPartnerNews = false;
+
+  for (const item of items) {
+    if (item.id <= lastSeen) break;
+    if (item.author === myName) continue;
+
+    const tag = `activity-${item.id}`;
+    if (wasShown(tag)) continue;
+
+    hadPartnerNews = true;
+    const alert = formatPartnerActivityAlert(item);
+    const route = item.route || '/dashboard';
+
+    if (inAppToast) {
+      dispatchPartnerToast(alert, route);
+    }
+    if (lockScreen) {
+      showLocalNotification({ ...alert, tag, route });
+    } else {
+      markShown(tag);
+    }
+
+    if (item.id > newestId) newestId = item.id;
+  }
+
+  const topId = items[0]?.id ?? newestId;
+  if (topId > lastSeen) {
+    localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(topId));
+  }
+
+  if (hadPartnerNews) bumpActivityFeed();
+  return hadPartnerNews;
+}
+
+/** Keep partner activity feed fresh even when push is off. */
+export async function pollPartnerActivityFeed() {
   try {
     const { api } = await import('../api/client');
-    const items = await api.getActivity(8);
+    const items = await api.getActivity(12);
     if (!items.length) return;
 
     const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
-    const topId = items[0]?.id ?? lastSeen;
-    if (topId > lastSeen) {
-      localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(topId));
+    const myName = localStorage.getItem(MY_NAME_KEY) || '';
+    const hasNewPartner = items.some((item) => item.id > lastSeen && item.author !== myName);
+
+    if (hasNewPartner) bumpActivityFeed();
+
+    const inApp = document.visibilityState === 'visible';
+    if (inApp) {
+      processPartnerActivityItems(items, { inAppToast: true, lockScreen: false });
+      return;
     }
 
-    for (const item of items) {
-      if (item.id <= lastSeen) break;
-      markShown(`activity-${item.id}`);
+    if (notificationsEnabled() && Notification.permission === 'granted') {
+      processPartnerActivityItems(items, { inAppToast: false, lockScreen: true });
     }
   } catch {
     /* offline */
@@ -79,6 +163,23 @@ export function initNotificationBridge() {
     const msg = event.data;
     if (!msg || msg.type !== 'PUSH_ACTIVITY') return;
     recordNotificationTag(msg.tag, msg.activityId ?? null);
+    bumpActivityFeed();
+
+    if (msg.shown) return;
+
+    const activityId = msg.activityId;
+    if (!activityId) return;
+
+    import('../api/client')
+      .then(({ api }) => api.getActivity(12))
+      .then((items) => {
+        const item = items.find((row) => row.id === activityId);
+        if (!item) return;
+        const myName = localStorage.getItem(MY_NAME_KEY) || '';
+        if (item.author === myName) return;
+        dispatchPartnerToast(formatPartnerActivityAlert(item), item.route);
+      })
+      .catch(() => {});
   });
 }
 
@@ -121,50 +222,10 @@ export async function checkAndNotify() {
 }
 
 /**
- * Fallback partner alerts when the app is in the background.
- * When visible, only syncs the cursor — Web Push + ActivityFeed handle the rest.
+ * Partner alerts: in-app toast when open, lock-screen when backgrounded.
  */
 export async function pollPartnerActivity() {
-  if (!notificationsEnabled() || Notification.permission !== 'granted') return;
-
-  if (document.visibilityState === 'visible') {
-    await syncActivityCursor();
-    return;
-  }
-
-  try {
-    const { api } = await import('../api/client');
-    const items = await api.getActivity(8);
-    if (!items.length) return;
-
-    const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
-    const myName = localStorage.getItem(MY_NAME_KEY) || '';
-    let newestId = lastSeen;
-
-    for (const item of items) {
-      if (item.id <= lastSeen) break;
-      if (item.author === myName) continue;
-
-      const tag = `activity-${item.id}`;
-      if (wasShown(tag)) continue;
-
-      showLocalNotification({
-        title: item.kind === 'ping' ? 'Thinking of you 💕' : 'Partner activity',
-        body: item.kind === 'ping' ? item.title : `${item.author} — ${item.title}`,
-        tag,
-        route: item.route || '/dashboard',
-      });
-
-      if (item.id > newestId) newestId = item.id;
-    }
-
-    const topId = items[0]?.id ?? newestId;
-    if (topId > lastSeen) {
-      localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(topId));
-    }
-  } catch {
-    /* offline */
-  }
+  await pollPartnerActivityFeed();
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -263,5 +324,5 @@ export async function testPushOnDevice() {
 }
 
 export async function runNotificationPoll() {
-  await Promise.all([checkAndNotify(), pollPartnerActivity()]);
+  await Promise.all([checkAndNotify(), pollPartnerActivityFeed()]);
 }
