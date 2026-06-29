@@ -213,9 +213,11 @@ export const api = {
   getQuiz: () => request('/api/quiz'),
   getQuizResults: () => request('/api/quiz/results'),
   submitQuiz: (data) => request('/api/quiz/submit', { method: 'POST', body: JSON.stringify(data) }),
-  getMoodBoard: () => request('/api/mood-board'),
-  saveMoodBoard: (items) =>
-    request('/api/mood-board', { method: 'PUT', body: JSON.stringify(items) }),
+  getSeasons: (periodType = 'week') =>
+    request(`/api/seasons?period_type=${encodeURIComponent(periodType)}`),
+  saveSeason: (data) => request('/api/seasons', { method: 'POST', body: JSON.stringify(data) }),
+  deleteSeason: (id, author) =>
+    request(`/api/seasons/${id}?author=${encodeURIComponent(author)}`, { method: 'DELETE' }),
   getStory: () => request('/api/story'),
   getExtraInsights: () => request('/api/insights/extra'),
   getRandomMemory: () => request('/api/memories/random'),

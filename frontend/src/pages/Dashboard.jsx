@@ -18,6 +18,7 @@ import GlobalSearch from '../components/GlobalSearch';
 import UpcomingStrip from '../components/UpcomingStrip';
 import BucketProgress from '../components/BucketProgress';
 import QuickActions from '../components/QuickActions';
+import OurSeasonWidget from '../components/OurSeasonWidget';
 import YearInReview from '../components/YearInReview';
 import { useData } from '../context/DataContext';
 import { api } from '../api/client';
@@ -69,6 +70,7 @@ export default function Dashboard() {
       <RomanceWidgets />
       <ThinkingOfYou />
       <QuickActions />
+      <OurSeasonWidget />
       <DailyQuestion />
       <ActivityFeed />
       <OnThisDayBanner />
@@ -83,7 +85,7 @@ export default function Dashboard() {
         <FeatureLink icon={BookOpen} title={t('ourStory')} desc="Milestone timeline" route="/story" />
         <FeatureLink icon={MessageCircleHeart} title={t('quiz')} desc="Compare answers" route="/quiz" />
         <FeatureLink icon={Sparkle} title={t('starMap')} desc="Our constellation" route="/star-map" />
-        <FeatureLink icon={Palette} title={t('moodBoard')} desc="Shared vibes" route="/mood-board" />
+        <FeatureLink icon={Palette} title={t('moodBoard')} desc="Weekly & monthly moods" route="/mood-board" />
       </div>
 
       {stats && (

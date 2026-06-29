@@ -1,12 +1,13 @@
 import json
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.datetime_utils import utc_iso
+from app.core.season_utils import resolve_period_start
 from app.deps.couple import get_current_couple
 from app.models.entities import (
     ActivityEvent,
@@ -14,6 +15,7 @@ from app.models.entities import (
     CoupleSpace,
     DailyQuestionAnswer,
     Memory,
+    SeasonEntry,
     TripAlbum,
 )
 from app.services.activity import log_activity
@@ -55,10 +57,42 @@ class DailyAnswerIn(BaseModel):
     answer: str
 
 
-class MoodItem(BaseModel):
-    text: str = ""
-    image_url: str = ""
+class SeasonEntryIn(BaseModel):
+    author: str = Field(min_length=1, max_length=64)
+    period_type: str = Field(pattern="^(week|month)$")
+    period_start: str = ""
+    title: str = Field(min_length=1, max_length=255)
+    description: str = ""
     color: str = "#ff4d6d"
+    photo_url: str = ""
+
+
+class SeasonEntryOut(BaseModel):
+    id: int
+    author: str
+    period_type: str
+    period_start: str
+    title: str
+    description: str
+    color: str
+    photo_url: str
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_row(cls, row: SeasonEntry) -> "SeasonEntryOut":
+        return cls(
+            id=row.id,
+            author=row.author,
+            period_type=row.period_type,
+            period_start=row.period_start.isoformat(),
+            title=row.title,
+            description=row.description or "",
+            color=row.color or "#ff4d6d",
+            photo_url=row.photo_url or "",
+            created_at=utc_iso(row.created_at) if row.created_at else "",
+            updated_at=utc_iso(row.updated_at) if row.updated_at else "",
+        )
 
 
 class QuizSubmit(BaseModel):
@@ -260,25 +294,108 @@ def submit_quiz(
     return {"ok": True, "results": results}
 
 
-@router.get("/mood-board")
-def get_mood_board(
+def _season_entries(db: Session, couple_id: int):
+    return db.query(SeasonEntry).filter(SeasonEntry.couple_id == couple_id)
+
+
+@router.get("/seasons", response_model=dict)
+def list_seasons(
+    period_type: str = Query(default="week", pattern="^(week|month)$"),
+    limit: int = Query(default=24, ge=1, le=120),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict:
-    meta = _meta(db, couple.id)
-    return {"items": json.loads(meta.mood_board_json or "[]")}
+    rows = (
+        _season_entries(db, couple.id)
+        .filter(SeasonEntry.period_type == period_type)
+        .order_by(SeasonEntry.period_start.desc(), SeasonEntry.author.asc())
+        .limit(limit)
+        .all()
+    )
+    current_start = resolve_period_start(date.today(), period_type)
+    entries = [SeasonEntryOut.from_row(r) for r in rows]
+    current = [e for e in entries if e.period_start == current_start.isoformat()]
+    return {
+        "period_type": period_type,
+        "current_period_start": current_start.isoformat(),
+        "entries": entries,
+        "current": current,
+    }
 
 
-@router.put("/mood-board")
-def save_mood_board(
-    items: list[MoodItem],
+@router.post("/seasons", response_model=SeasonEntryOut, status_code=201)
+def upsert_season(
+    payload: SeasonEntryIn,
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
-) -> dict:
-    meta = _meta(db, couple.id)
-    meta.mood_board_json = json.dumps([i.model_dump() for i in items])
+) -> SeasonEntryOut:
+    names = {couple.partner1_name, couple.partner2_name, "Us"}
+    if payload.author not in names:
+        raise HTTPException(status_code=400, detail="Invalid author")
+
+    if payload.period_start:
+        try:
+            period_start = date.fromisoformat(payload.period_start)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid period_start") from exc
+        period_start = resolve_period_start(period_start, payload.period_type)
+    else:
+        period_start = resolve_period_start(None, payload.period_type)
+
+    row = (
+        _season_entries(db, couple.id)
+        .filter(
+            SeasonEntry.author == payload.author,
+            SeasonEntry.period_type == payload.period_type,
+            SeasonEntry.period_start == period_start,
+        )
+        .first()
+    )
+    created = row is None
+    if not row:
+        row = SeasonEntry(
+            couple_id=couple.id,
+            author=payload.author,
+            period_type=payload.period_type,
+            period_start=period_start,
+        )
+        db.add(row)
+
+    row.title = payload.title.strip()
+    row.description = payload.description.strip()
+    row.color = payload.color or "#ff4d6d"
+    row.photo_url = payload.photo_url or ""
+
+    if created:
+        db.flush()
+        log_activity(
+            db,
+            kind="season",
+            title=payload.title.strip(),
+            author=payload.author,
+            entity_id=row.id,
+            route="/mood-board",
+        )
+
     db.commit()
-    return {"ok": True}
+    db.refresh(row)
+    return SeasonEntryOut.from_row(row)
+
+
+@router.delete("/seasons/{entry_id}", status_code=204)
+def delete_season(
+    entry_id: int,
+    author: str = Query(min_length=1, max_length=64),
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = _season_entries(db, couple.id).filter(SeasonEntry.id == entry_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Season entry not found")
+    if row.author != author:
+        raise HTTPException(status_code=403, detail="You can only remove your own season entry")
+    db.delete(row)
+    db.commit()
 
 
 @router.get("/story")

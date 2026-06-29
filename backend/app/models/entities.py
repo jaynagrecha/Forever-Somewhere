@@ -225,6 +225,24 @@ class DailyQuestionAnswer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class SeasonEntry(Base):
+    __tablename__ = "season_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    period_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    color: Mapped[str] = mapped_column(String(32), default="#ff4d6d")
+    photo_url: Mapped[str] = mapped_column(String(512), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 class CoupleMeta(Base):
     __tablename__ = "couple_meta"
 

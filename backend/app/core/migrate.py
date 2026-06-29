@@ -19,6 +19,7 @@ TENANT_TABLES = (
     "trip_albums",
     "activity_events",
     "daily_question_answers",
+    "season_entries",
 )
 
 

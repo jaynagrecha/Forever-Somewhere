@@ -15,6 +15,7 @@ const KIND_LABEL = {
   capsule: '🔒 Capsule',
   trip_pin: '📍 Map pin',
   album: '📁 Album',
+  season: '🎨 Our season',
 };
 
 const POLL_MS = 12_000;
