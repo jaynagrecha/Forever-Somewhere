@@ -1,3 +1,5 @@
+import { api as defaultApi } from '../api/client';
+
 export function downloadJson(filename, data) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -7,16 +9,13 @@ export function downloadJson(filename, data) {
   URL.revokeObjectURL(a.href);
 }
 
-export async function exportArchive(api, fallbackData) {
+export async function exportArchive(apiClient = defaultApi, fallbackData) {
   try {
-    const res = await fetch('/api/export');
-    if (res.ok) {
-      const data = await res.json();
-      downloadJson(`forever-somewhere-${Date.now()}.json`, data);
-      return;
-    }
+    const data = await apiClient.exportArchive();
+    downloadJson(`forever-somewhere-${Date.now()}.json`, data);
+    return;
   } catch {
-    /* offline fallback */
+    /* offline or API unavailable — use local snapshot */
   }
   downloadJson(`forever-somewhere-${Date.now()}.json`, {
     exported_at: new Date().toISOString(),

@@ -1,7 +1,7 @@
 const PREFS_KEY = 'forever_notifications_enabled';
 const SHOWN_KEY = 'forever_notifications_shown';
 const LAST_ACTIVITY_ID_KEY = 'forever_last_activity_id';
-const MY_NAME_KEY = 'forever_my_name';
+import { MY_NAME_KEY } from '../utils/constants';
 const VAPID_KEY = 'forever_vapid_key';
 
 export function notificationsEnabled() {

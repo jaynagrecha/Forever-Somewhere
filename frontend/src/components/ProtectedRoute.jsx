@@ -14,7 +14,8 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!isAuthed) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+    const from = location.pathname + location.search;
+    return <Navigate to="/" replace state={{ from }} />;
   }
 
   return children;

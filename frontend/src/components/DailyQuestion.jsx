@@ -24,7 +24,18 @@ export default function DailyQuestion() {
   }
 
   useEffect(() => {
-    load();
+    let active = true;
+    api
+      .getDailyQuestion()
+      .then((payload) => {
+        if (active) setData(payload);
+      })
+      .catch(() => {
+        if (active) setData(null);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function submit() {

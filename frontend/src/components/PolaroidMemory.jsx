@@ -15,6 +15,7 @@ export default function PolaroidMemory({
   onDelete,
   onDownload,
   onPreview,
+  onView,
 }) {
   const tilt = tiltForId(memory.id);
   const isMilestone = memory.isMilestone || memory.is_milestone;
@@ -52,7 +53,15 @@ export default function PolaroidMemory({
             <Badge tone="gold">{memory.milestoneType || memory.milestone_type}</Badge>
           )}
           <p className="handwritten-date mt-2 text-ink/80">{memory.date || 'Undated'}</p>
-          <h2 className="mt-1 font-display text-2xl text-ink">{memory.title}</h2>
+          <h2
+            className={`mt-1 font-display text-2xl text-ink ${onView ? 'cursor-pointer hover:text-accent' : ''}`}
+            onClick={onView ? () => onView(memory) : undefined}
+            onKeyDown={onView ? (e) => e.key === 'Enter' && onView(memory) : undefined}
+            role={onView ? 'button' : undefined}
+            tabIndex={onView ? 0 : undefined}
+          >
+            {memory.title}
+          </h2>
           {memory.location && (
             <p className="mt-1 text-sm text-ink/60">📍 {memory.location.split(',')[0]}</p>
           )}
@@ -94,6 +103,11 @@ export default function PolaroidMemory({
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
+            {onView && (
+              <Button size="sm" variant="secondary" onClick={() => onView(memory)}>
+                View
+              </Button>
+            )}
             <Button size="sm" onClick={() => onEdit?.(memory)}>Edit</Button>
             <Button size="sm" variant="secondary" onClick={() => onShare?.(memory)}>Share</Button>
             <Button size="sm" variant="danger" onClick={() => onDelete?.(memory.id)}>Delete</Button>

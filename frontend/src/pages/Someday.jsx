@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Plus, Pencil, Camera, CheckSquare, ThumbsUp, ExternalLink, PiggyBank } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
@@ -39,11 +39,25 @@ export default function Someday() {
   const { toast } = useToast();
   const { partnerNames } = useAuth();
   const voters = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(() => params.get('new') === '1');
   const [editingId, setEditingId] = useState(null);
-  const [highlightDreamId, setHighlightDreamId] = useState(null);
+  const dreamId = params.get('dream');
+  const linkedHighlightDreamId = useMemo(() => {
+    if (!dreamId || !dreams.length) return null;
+    const dream = dreams.find((d) => String(d.id) === dreamId);
+    return dream ? dream.id : null;
+  }, [dreamId, dreams]);
+  const activeHighlightDreamId = linkedHighlightDreamId;
   const [form, setForm] = useState(empty);
   const [checkItem, setCheckItem] = useState('');
+
+  useEffect(() => {
+    if (linkedHighlightDreamId == null) return undefined;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`dream-${linkedHighlightDreamId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedHighlightDreamId]);
 
   function openEdit(d) {
     setEditingId(d.id);
@@ -63,17 +77,6 @@ export default function Someday() {
     setForm(empty);
     setEditingId(null);
   }
-
-  useEffect(() => {
-    const dreamId = params.get('dream');
-    if (!dreamId || !dreams.length) return;
-    const dream = dreams.find((d) => String(d.id) === dreamId);
-    if (!dream) return;
-    setHighlightDreamId(dream.id);
-    requestAnimationFrame(() => {
-      document.getElementById(`dream-${dream.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  }, [params, dreams]);
 
   async function save() {
     if (!form.title.trim()) return toast('Enter a dream title', 'error');
@@ -156,7 +159,7 @@ export default function Someday() {
             <Card
               key={dream.id}
               id={`dream-${dream.id}`}
-              className={highlightDreamId === dream.id ? 'ring-2 ring-accent' : ''}
+              className={activeHighlightDreamId === dream.id ? 'ring-2 ring-accent' : ''}
             >
               <Badge tone={dream.status === 'Completed' ? 'success' : dream.status === 'Planned' ? 'accent' : 'default'}>
                 {dream.status}

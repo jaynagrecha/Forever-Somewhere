@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetime_utils import days_until
 from app.deps.couple import get_current_couple
 from app.models.entities import ActivityEvent, CoupleSpace, ImportantDate, Memory
 from app.services.activity import log_activity
@@ -26,16 +27,6 @@ class TogetherOut(BaseModel):
     next_anniversary_days: int | None
     partner1: str
     partner2: str
-
-
-def _days_until(event: date, recurring: bool) -> int:
-    today = date.today()
-    if recurring:
-        candidate = event.replace(year=today.year)
-        if candidate < today:
-            candidate = candidate.replace(year=today.year + 1)
-        return (candidate - today).days
-    return max(0, (event - today).days)
 
 
 def _together_start(db: Session, couple: CoupleSpace) -> date:
@@ -132,10 +123,10 @@ def together_stats(
     next_date: str | None = None
     next_days: int | None = None
     if dates:
-        nearest = min(dates, key=lambda r: _days_until(r.event_date, r.recurring))
+        nearest = min(dates, key=lambda r: days_until(r.event_date, r.recurring))
         next_title = nearest.title
         next_date = nearest.event_date.isoformat()
-        next_days = _days_until(nearest.event_date, nearest.recurring)
+        next_days = days_until(nearest.event_date, nearest.recurring)
 
     return TogetherOut(
         days_together=days,

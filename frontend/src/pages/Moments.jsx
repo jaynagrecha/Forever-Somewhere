@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import JSZip from 'jszip';
 import { Shuffle, Plus, Filter } from 'lucide-react';
@@ -37,57 +37,87 @@ const emptyForm = {
   added_by: '',
 };
 
+function readSearchParams() {
+  return new URLSearchParams(window.location.search);
+}
+
+function buildInitialForm() {
+  const params = readSearchParams();
+  if (params.get('new') === '1' && params.get('title')) {
+    return {
+      ...emptyForm,
+      title: params.get('title') || '',
+      occasion: params.get('occasion') || '',
+      notes: params.get('notes') || '',
+    };
+  }
+  return emptyForm;
+}
+
 export default function Moments() {
   const { memories, memoryOps, dreamOps, online } = useData();
   const { toast } = useToast();
   const authorOptions = useAuthorOptions();
   const defaultAuthor = usePartnerPicker(0);
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
 
-  const [showForm, setShowForm] = useState(params.get('new') === '1');
+  const [showForm, setShowForm] = useState(() => readSearchParams().get('new') === '1');
   const [editingId, setEditingId] = useState(null);
-  const [linkedDreamId, setLinkedDreamId] = useState(params.get('dreamId'));
+  const [linkedDreamId, setLinkedDreamId] = useState(() => readSearchParams().get('dreamId'));
   const [surprise, setSurprise] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [detailMemory, setDetailMemory] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-  const [locationQuery, setLocationQuery] = useState('');
+  const [pickedDetailMemory, setPickedDetailMemory] = useState(null);
+  const [form, setForm] = useState(buildInitialForm);
+  const [locationQuery, setLocationQuery] = useState(() => {
+    const params = readSearchParams();
+    return params.get('new') === '1' ? params.get('location') || '' : '';
+  });
   const [tagFilter, setTagFilter] = useState('');
   const [albums, setAlbums] = useState([]);
-  const [albumFilter, setAlbumFilter] = useState('');
+  const [albumFilter, setAlbumFilter] = useState(() => readSearchParams().get('album') || '');
   const [showAlbumForm, setShowAlbumForm] = useState(false);
   const [albumTitle, setAlbumTitle] = useState('');
 
   useEffect(() => {
-    api.getAlbums().then(setAlbums).catch(() => setAlbums([]));
+    let cancelled = false;
+    api
+      .getAlbums()
+      .then((data) => {
+        if (!cancelled) setAlbums(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAlbums([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [memories.length]);
 
-  useEffect(() => {
-    if (params.get('new') === '1' && params.get('title')) {
-      setForm((f) => ({
-        ...f,
-        title: params.get('title') || '',
-        occasion: params.get('occasion') || '',
-        notes: params.get('notes') || '',
-      }));
-      setLocationQuery(params.get('location') || '');
-      setShowForm(true);
+  const memoryId = params.get('memory');
+  const linkedDetailMemory = useMemo(() => {
+    if (!memoryId || !memories.length) return null;
+    return memories.find((m) => String(m.id) === memoryId) ?? null;
+  }, [memoryId, memories]);
+  const activeDetailMemory = pickedDetailMemory ?? linkedDetailMemory;
+
+  function closeDetailMemory() {
+    setPickedDetailMemory(null);
+    if (params.get('memory')) {
+      const next = new URLSearchParams(params);
+      next.delete('memory');
+      setParams(next, { replace: true });
     }
-  }, [params]);
+  }
 
   useEffect(() => {
-    const albumId = params.get('album');
-    if (albumId) setAlbumFilter(albumId);
-
-    const memoryId = params.get('memory');
-    if (!memoryId || !memories.length) return;
+    if (!memoryId || !memories.length) return undefined;
     const memory = memories.find((m) => String(m.id) === memoryId);
-    if (!memory) return;
-    setDetailMemory(memory);
-    requestAnimationFrame(() => {
+    if (!memory) return undefined;
+    const frame = requestAnimationFrame(() => {
       document.getElementById(`memory-${memory.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-  }, [params, memories]);
+    return () => cancelAnimationFrame(frame);
+  }, [memoryId, memories]);
 
   const filtered = memories.filter((m) => {
     if (tagFilter && !(m.tags || []).includes(tagFilter)) return false;
@@ -315,6 +345,7 @@ export default function Moments() {
                 <PolaroidMemory
                   memory={m}
                   photoSrc={photoSrc}
+                  onView={setPickedDetailMemory}
                   onEdit={openEdit}
                   onShare={shareMemoryCard}
                   onDelete={(id) => memoryOps.remove(id)}
@@ -409,19 +440,19 @@ export default function Moments() {
         {preview && <img src={photoSrc(preview)} alt="" className="mx-auto max-h-[70vh] rounded-2xl" />}
       </Modal>
 
-      <Modal open={!!detailMemory} onClose={() => setDetailMemory(null)} title="Memory" wide>
-        {detailMemory && (
+      <Modal open={!!activeDetailMemory} onClose={closeDetailMemory} title="Memory" wide>
+        {activeDetailMemory && (
           <div className="space-y-4">
-            <h3 className="font-display text-3xl">{detailMemory.title}</h3>
+            <h3 className="font-display text-3xl">{activeDetailMemory.title}</h3>
             <p className="text-muted">
-              {detailMemory.date || 'Undated'}
-              {detailMemory.location ? ` · ${detailMemory.location.split(',')[0]}` : ''}
+              {activeDetailMemory.date || 'Undated'}
+              {activeDetailMemory.location ? ` · ${activeDetailMemory.location.split(',')[0]}` : ''}
             </p>
-            {detailMemory.occasion && <p className="text-sm text-accent-soft">{detailMemory.occasion}</p>}
-            {detailMemory.notes && <p className="whitespace-pre-wrap leading-relaxed">{detailMemory.notes}</p>}
-            {(detailMemory.photos || []).length > 0 && (
+            {activeDetailMemory.occasion && <p className="text-sm text-accent-soft">{activeDetailMemory.occasion}</p>}
+            {activeDetailMemory.notes && <p className="whitespace-pre-wrap leading-relaxed">{activeDetailMemory.notes}</p>}
+            {(activeDetailMemory.photos || []).length > 0 && (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {detailMemory.photos.map((p) => (
+                {activeDetailMemory.photos.map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -434,10 +465,10 @@ export default function Moments() {
               </div>
             )}
             <div className="flex flex-wrap gap-2 pt-2">
-              <Button variant="secondary" onClick={() => { openEdit(detailMemory); setDetailMemory(null); }}>
+              <Button variant="secondary" onClick={() => { openEdit(activeDetailMemory); closeDetailMemory(); }}>
                 Edit memory
               </Button>
-              <Button onClick={() => setDetailMemory(null)}>Close</Button>
+              <Button onClick={closeDetailMemory}>Close</Button>
             </div>
           </div>
         )}

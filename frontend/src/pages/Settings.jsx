@@ -41,7 +41,7 @@ function devicePartnerSlot(partnerNames, myName) {
 }
 
 export default function Settings() {
-  const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
+  const { memories, tripPins, dreams, capsules, loveNotes, importantDates, promptAnswers, dateOps, online, connecting, reconnect, refreshAll } = useData();
   const { toast } = useToast();
   const { inviteCode, displayName, logout, partnerNames } = useAuth();
   const { myName, setMyName, identityLocked } = useMyName();
@@ -85,13 +85,14 @@ export default function Settings() {
   }
 
   async function handleExport() {
-    await exportArchive(null, {
+    await exportArchive(api, {
       memories,
       trip_pins: tripPins,
       dreams,
       capsules,
       love_notes: loveNotes,
       important_dates: importantDates,
+      prompt_answers: promptAnswers,
     });
     toast('Archive downloaded', 'success');
   }
@@ -168,7 +169,10 @@ export default function Settings() {
     try {
       await api.restoreBackup(file);
       await refreshAll(true);
-      toast('Backup restored — refresh if data looks incomplete', 'success');
+      toast(
+        'Imported memories, map pins, and dreams from backup. Love notes, capsules, and anniversaries were not changed.',
+        'success'
+      );
     } catch {
       toast('Invalid backup file', 'error');
     }
@@ -340,7 +344,10 @@ export default function Settings() {
           <h2 className="font-display text-xl">Export archive</h2>
           <p className="mt-2 text-sm text-muted">Full JSON backup of your world.</p>
           <Button className="mt-4" onClick={handleExport}>Download backup</Button>
-          <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-accent-soft">
+          <p className="mt-4 text-xs text-muted">
+            Restore imports memories, map pins, and dreams only — not love notes, capsules, or anniversaries.
+          </p>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-accent-soft">
             <Upload size={16} /> Restore from backup
             <input type="file" accept="application/json,.json" className="hidden" onChange={handleRestore} />
           </label>

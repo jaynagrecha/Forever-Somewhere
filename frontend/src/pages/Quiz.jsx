@@ -17,14 +17,18 @@ export default function Quiz() {
   const [answers, setAnswers] = useState({});
   const [saving, setSaving] = useState(false);
 
-  async function load() {
-    const [q, r] = await Promise.all([api.getQuiz(), api.getQuizResults()]);
-    setQuestions(q.questions || []);
-    setResults(r.results || []);
-  }
-
   useEffect(() => {
-    load().catch(() => {});
+    let active = true;
+    Promise.all([api.getQuiz(), api.getQuizResults()])
+      .then(([q, r]) => {
+        if (!active) return;
+        setQuestions(q.questions || []);
+        setResults(r.results || []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   function setAnswer(qid, value) {

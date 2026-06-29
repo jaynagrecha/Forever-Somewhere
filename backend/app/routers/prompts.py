@@ -14,7 +14,7 @@ DEFAULT_PROMPTS = [
     {"id": "p3", "category": "Us", "text": "What is one small thing I do that makes you feel loved?"},
     {"id": "p4", "category": "Future", "text": "What tradition do you want us to start as a couple?"},
     {"id": "p5", "category": "Gratitude", "text": "What are you most grateful for about our relationship right now?"},
-    {"id": "p6", "category": "Play", "text": "What is a adventure we have never tried but should?"},
+    {"id": "p6", "category": "Play", "text": "What is an adventure we have never tried but should?"},
     {"id": "p7", "category": "Deep", "text": "When did you know you wanted to build a life with me?"},
     {"id": "p8", "category": "Fun", "text": "What song feels most like us as a couple?"},
     {"id": "p9", "category": "Home", "text": "What does our ideal ordinary Sunday look like?"},

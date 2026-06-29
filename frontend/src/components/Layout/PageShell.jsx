@@ -13,7 +13,7 @@ const nav = [
   { to: '/settings', label: 'Tools', icon: Settings },
 ];
 
-export default function PageShell({ title, subtitle, children, backTo = '/dashboard' }) {
+export default function PageShell({ title, subtitle, children, backTo = '/dashboard', hideBack = false }) {
   const location = useLocation();
   const isLanding = location.pathname === '/';
 
@@ -30,11 +30,13 @@ export default function PageShell({ title, subtitle, children, backTo = '/dashbo
         </div>
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4 animate-fade-in">
           <div>
-            <Link to={backTo}>
-              <Button variant="ghost" size="sm" className="mb-4">
-                ← Back
-              </Button>
-            </Link>
+            {!hideBack && (
+              <Link to={backTo}>
+                <Button variant="ghost" size="sm" className="mb-4">
+                  ← Back
+                </Button>
+              </Link>
+            )}
             {title && (
               <h1 className="font-display text-3xl md:text-5xl">{title}</h1>
             )}

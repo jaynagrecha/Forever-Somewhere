@@ -1,14 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const SESSION_KEY = 'forever_names_anim_shown';
+const STORAGE_KEY = 'forever_names_anim_seen';
 
-/** Stars drift in, then partner names glow into view — once per browser session. */
+/** Stars drift in, then partner names glow — once ever per device (tap to skip). */
 export default function OpeningNamesAnimation({ onDone }) {
   const { partnerNames } = useAuth();
   const [phase, setPhase] = useState('stars');
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1');
   const canvasRef = useRef(null);
   const doneRef = useRef(false);
+
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    localStorage.setItem(STORAGE_KEY, '1');
+    setDismissed(true);
+    onDone?.();
+  }, [onDone]);
+
+  useEffect(() => {
+    if (dismissed) {
+      onDone?.();
+    }
+  }, [dismissed, onDone]);
 
   const names = useMemo(() => {
     if (partnerNames?.length >= 2) return partnerNames;
@@ -16,10 +31,7 @@ export default function OpeningNamesAnimation({ onDone }) {
   }, [partnerNames]);
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY)) {
-      onDone?.();
-      return undefined;
-    }
+    if (dismissed) return undefined;
 
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -59,32 +71,31 @@ export default function OpeningNamesAnimation({ onDone }) {
       });
 
       if (elapsed > 1.6 && phase === 'stars') setPhase('names');
-      if (elapsed < 3.2) raf = requestAnimationFrame(draw);
+      if (elapsed < 2) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
 
-    const timer = setTimeout(() => {
-      if (!doneRef.current) {
-        doneRef.current = true;
-        sessionStorage.setItem(SESSION_KEY, '1');
-        onDone?.();
-      }
-    }, 3200);
+    const timer = setTimeout(finish, 2000);
 
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(timer);
       window.removeEventListener('resize', resize);
     };
-  }, [onDone, phase]);
+  }, [finish, phase, dismissed]);
 
-  if (sessionStorage.getItem(SESSION_KEY)) return null;
+  if (dismissed) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink"
-      role="presentation"
-      aria-hidden
+      className="fixed inset-0 z-[100] flex cursor-pointer items-center justify-center bg-ink"
+      role="button"
+      tabIndex={0}
+      aria-label="Skip welcome animation"
+      onClick={finish}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') finish();
+      }}
     >
       <canvas ref={canvasRef} className="absolute inset-0" />
       <div
@@ -98,6 +109,7 @@ export default function OpeningNamesAnimation({ onDone }) {
           <span className="mx-3 text-accent">&amp;</span>
           <span className="name-glow">{names[1]}</span>
         </h1>
+        <p className="mt-6 text-xs text-muted">Tap anywhere to continue</p>
       </div>
     </div>
   );

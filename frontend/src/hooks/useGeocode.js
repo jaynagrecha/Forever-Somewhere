@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export function useGeocode(query, minLength = 3, delay = 600) {
+  const trimmed = query.trim();
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (query.trim().length < minLength) {
-      setSuggestions([]);
-      return;
-    }
+    if (trimmed.length < minLength) return undefined;
 
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&limit=5`,
           { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();
@@ -27,9 +25,18 @@ export function useGeocode(query, minLength = 3, delay = 600) {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [query, minLength, delay]);
+  }, [trimmed, minLength, delay]);
 
-  return { suggestions, loading, clearSuggestions: () => setSuggestions([]) };
+  const visibleSuggestions = useMemo(
+    () => (trimmed.length < minLength ? [] : suggestions),
+    [trimmed.length, minLength, suggestions]
+  );
+
+  return {
+    suggestions: visibleSuggestions,
+    loading: trimmed.length >= minLength && loading,
+    clearSuggestions: () => setSuggestions([]),
+  };
 }
 
 export function pickLocation(loc) {

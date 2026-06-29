@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart, KeyRound, Sparkles } from 'lucide-react';
 import StarBackground from '../components/StarBackground';
 import BrandLogo from '../components/BrandLogo';
@@ -9,9 +9,12 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../api/client';
+import { resolvePostLoginPath } from '../utils/navigation';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const afterLogin = () => navigate(resolvePostLoginPath(location.state?.from));
   const { login, isAuthed, displayName, partnerNames } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState('welcome');
@@ -53,7 +56,7 @@ export default function Landing() {
       const session = await api.joinCoupleSpace(joinForm);
       login(session);
       toast('Welcome back to your space', 'success');
-      navigate('/dashboard');
+      afterLogin();
     } catch (err) {
       toast(err.message || 'Could not join', 'error');
     } finally {
@@ -82,7 +85,7 @@ export default function Landing() {
         </p>
 
         {isAuthed ? (
-          <Button variant="primary" size="lg" className="mt-10" onClick={() => navigate('/dashboard')}>
+          <Button variant="primary" size="lg" className="mt-10" onClick={afterLogin}>
             Enter {displayName || 'Our World'}
           </Button>
         ) : (
@@ -147,7 +150,7 @@ export default function Landing() {
                 <p className="mt-4 text-sm text-muted">
                   They open this same app URL and tap &quot;Join with invite code&quot;.
                 </p>
-                <Button className="mt-6" variant="primary" onClick={() => navigate('/dashboard')}>
+                <Button className="mt-6" variant="primary" onClick={afterLogin}>
                   Enter our world
                 </Button>
               </Card>

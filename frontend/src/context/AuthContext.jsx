@@ -1,9 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, isUnauthorizedError, setCoupleTokenGetter } from '../api/client';
-
-const TOKEN_KEY = 'forever_couple_token';
-const COUPLE_CACHE_KEY = 'forever_couple_profile';
-const MY_NAME_KEY = 'forever_my_name';
+import { COUPLE_CACHE_KEY, MY_NAME_KEY, TOKEN_KEY } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
@@ -53,19 +50,20 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   useEffect(() => {
-    if (!token) {
-      setCouple(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (!token) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setLoading(true);
+    });
     api
       .getCoupleMe()
       .then((profile) => {
+        if (!active) return;
         setCouple(profile);
         writeCoupleCache(profile);
       })
       .catch((err) => {
+        if (!active) return;
         if (isUnauthorizedError(err)) {
           logout();
           return;
@@ -73,22 +71,29 @@ export function AuthProvider({ children }) {
         const cached = readCoupleCache();
         if (cached) setCouple(cached);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [token, logout]);
+
+  const activeCouple = token ? couple : null;
 
   const value = useMemo(
     () => ({
       token,
-      couple,
-      loading,
-      isAuthed: !!token && !!couple,
+      couple: activeCouple,
+      loading: token ? loading : false,
+      isAuthed: !!token && !!activeCouple,
       login,
       logout,
-      partnerNames: couple ? [couple.partner1_name, couple.partner2_name] : [],
-      displayName: couple?.display_name || '',
-      inviteCode: couple?.invite_code || '',
+      partnerNames: activeCouple ? [activeCouple.partner1_name, activeCouple.partner2_name] : [],
+      displayName: activeCouple?.display_name || '',
+      inviteCode: activeCouple?.invite_code || '',
     }),
-    [token, couple, loading, login, logout]
+    [token, activeCouple, loading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -123,28 +128,28 @@ export function usePartnerPicker(defaultIndex = 0) {
 /** Who is using this device — stored locally so pings and answers credit the right partner */
 export function useMyName() {
   const { partnerNames } = useAuth();
-  const names = partnerNames.length >= 2 ? partnerNames : [];
+  const names = useMemo(
+    () => (partnerNames.length >= 2 ? partnerNames : []),
+    [partnerNames]
+  );
 
-  const readStored = () => {
-    const stored = localStorage.getItem(MY_NAME_KEY);
-    if (stored && names.includes(stored)) return stored;
+  const [storedName, setStoredName] = useState(() => {
+    const saved = localStorage.getItem(MY_NAME_KEY);
+    return saved || '';
+  });
+
+  const myName = useMemo(() => {
+    if (storedName && names.includes(storedName)) return storedName;
     return '';
-  };
-
-  const [myName, setMyNameState] = useState(readStored);
-
-  useEffect(() => {
-    const stored = readStored();
-    setMyNameState(stored);
-  }, [partnerNames.join('|')]);
+  }, [storedName, names]);
 
   const setMyName = useCallback(
     (name) => {
       if (!name || !names.includes(name)) return false;
-      const stored = localStorage.getItem(MY_NAME_KEY);
-      if (stored) return stored === name;
+      const saved = localStorage.getItem(MY_NAME_KEY);
+      if (saved) return saved === name;
       localStorage.setItem(MY_NAME_KEY, name);
-      setMyNameState(name);
+      setStoredName(name);
       return true;
     },
     [names]

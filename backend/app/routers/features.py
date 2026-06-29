@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.datetime_utils import days_until
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
 from app.models.entities import (
@@ -35,16 +36,6 @@ from app.schemas.common import (
 )
 
 router = APIRouter(prefix="/api", tags=["features"])
-
-
-def _days_until(target: date, recurring: bool = False) -> int:
-    today = date.today()
-    if recurring:
-        candidate = target.replace(year=today.year)
-        if candidate < today:
-            candidate = candidate.replace(year=today.year + 1)
-        return (candidate - today).days
-    return (target - today).days
 
 
 def _bucket_progress(db: Session, couple_id: int) -> float:
@@ -127,7 +118,7 @@ def list_important_dates(
             title=r.title,
             event_date=r.event_date,
             recurring=r.recurring,
-            days_until=_days_until(r.event_date, r.recurring),
+            days_until=days_until(r.event_date, r.recurring),
         )
         for r in rows
     ]
@@ -148,7 +139,7 @@ def create_important_date(
         title=row.title,
         event_date=row.event_date,
         recurring=row.recurring,
-        days_until=_days_until(row.event_date, row.recurring),
+        days_until=days_until(row.event_date, row.recurring),
     )
 
 
@@ -209,7 +200,7 @@ def get_insights(
         )
 
     for row in db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all():
-        days = _days_until(row.event_date, row.recurring)
+        days = days_until(row.event_date, row.recurring)
         upcoming.append(
             UpcomingItem(
                 kind="anniversary",
@@ -222,7 +213,7 @@ def get_insights(
 
     for m in memories:
         if m.is_milestone and m.memory_date:
-            days = _days_until(m.memory_date, recurring=True)
+            days = days_until(m.memory_date, recurring=True)
             upcoming.append(
                 UpcomingItem(
                     kind="milestone",
@@ -238,13 +229,13 @@ def get_insights(
     next_ann: ImportantDateOut | None = None
     dates = db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all()
     if dates:
-        nearest = min(dates, key=lambda r: _days_until(r.event_date, r.recurring))
+        nearest = min(dates, key=lambda r: days_until(r.event_date, r.recurring))
         next_ann = ImportantDateOut(
             id=nearest.id,
             title=nearest.title,
             event_date=nearest.event_date,
             recurring=nearest.recurring,
-            days_until=_days_until(nearest.event_date, nearest.recurring),
+            days_until=days_until(nearest.event_date, nearest.recurring),
         )
 
     return InsightsOut(
@@ -309,7 +300,7 @@ def build_notification_feed(db: Session, couple_id: int) -> list[NotificationIte
             )
 
     for row in db.query(ImportantDate).filter(ImportantDate.couple_id == couple_id).all():
-        days = _days_until(row.event_date, row.recurring)
+        days = days_until(row.event_date, row.recurring)
         if days == 0:
             items.append(
                 NotificationItem(

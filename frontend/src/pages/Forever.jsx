@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lock, Unlock, Heart, Plus, StickyNote, Mic, Video, Feather } from 'lucide-react';
+import { Lock, Heart, Plus, StickyNote, Mic, Video, Feather } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -27,6 +27,14 @@ const LETTER_TEMPLATES = {
   'future-us': 'Dear future us…',
 };
 
+function CapsuleMediaPlayer({ url, type }) {
+  const src = resolveMediaUrl(url);
+  if (!src) return null;
+  if (type === 'audio') return <audio controls className="mt-4 w-full" src={src} />;
+  if (type === 'video') return <video controls className="mt-4 max-h-64 w-full rounded-xl" src={src} />;
+  return null;
+}
+
 export default function Forever() {
   const { capsules, capsuleOps, loveNotes, noteOps, online } = useData();
   const { toast } = useToast();
@@ -35,58 +43,90 @@ export default function Forever() {
   const [tab, setTab] = useState(params.get('tab') === 'notes' ? 'notes' : 'capsules');
 
   const [showCapsuleForm, setShowCapsuleForm] = useState(false);
-  const [showNoteForm, setShowNoteForm] = useState(params.get('tab') === 'notes');
+  const [showNoteForm, setShowNoteForm] = useState(
+    params.get('tab') === 'notes' && params.get('new') === '1'
+  );
   const [capsuleForm, setCapsuleForm] = useState(emptyCapsule);
   const [noteForm, setNoteForm] = useState(emptyNote);
   const [opened, setOpened] = useState(null);
   const [moodPrompts, setMoodPrompts] = useState([]);
-  const [highlightCapsuleId, setHighlightCapsuleId] = useState(null);
-  const [highlightNoteId, setHighlightNoteId] = useState(null);
   const deepLinkHandled = useRef('');
 
+  const openCapsule = useCallback(
+    async (c) => {
+      if (c.is_locked) return toast(`Unlocks in ${c.days_until_unlock} days`, 'error');
+      try {
+        const result = await capsuleOps.open(c.id);
+        romanceUnlock();
+        setOpened(result);
+        toast('Capsule opened', 'success');
+      } catch (e) {
+        toast(e.message || 'Still locked', 'error');
+      }
+    },
+    [capsuleOps, toast]
+  );
+
   useEffect(() => {
-    if (!noteForm.mood) {
-      setMoodPrompts([]);
-      return;
-    }
-    api.getLetterPrompts(noteForm.mood).then((d) => setMoodPrompts(d.prompts || [])).catch(() => setMoodPrompts([]));
+    if (!noteForm.mood) return undefined;
+    let active = true;
+    api
+      .getLetterPrompts(noteForm.mood)
+      .then((d) => {
+        if (active) setMoodPrompts(d.prompts || []);
+      })
+      .catch(() => {
+        if (active) setMoodPrompts([]);
+      });
+    return () => {
+      active = false;
+    };
   }, [noteForm.mood]);
 
-  useEffect(() => {
-    const capsuleId = params.get('capsule');
-    if (capsuleId && capsules.length) {
-      const sig = `capsule:${capsuleId}`;
-      if (deepLinkHandled.current !== sig) {
-        const c = capsules.find((x) => String(x.id) === capsuleId);
-        if (c) {
-          deepLinkHandled.current = sig;
-          setTab('capsules');
-          setHighlightCapsuleId(c.id);
-          if (c.is_opened) setOpened(c);
-          else if (!c.is_locked) void openCapsule(c);
-          requestAnimationFrame(() => {
-            document.getElementById(`capsule-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          });
-        }
-      }
-    }
+  const displayedMoodPrompts = noteForm.mood ? moodPrompts : [];
 
-    const noteId = params.get('note');
-    if (noteId && loveNotes.length) {
-      const sig = `note:${noteId}`;
-      if (deepLinkHandled.current !== sig) {
-        const n = loveNotes.find((x) => String(x.id) === noteId);
-        if (n) {
-          deepLinkHandled.current = sig;
-          setTab('notes');
-          setHighlightNoteId(n.id);
-          requestAnimationFrame(() => {
-            document.getElementById(`note-${n.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          });
-        }
-      }
-    }
-  }, [params, capsules, loveNotes]);
+  const capsuleId = params.get('capsule');
+  const linkedCapsuleTarget = useMemo(() => {
+    if (!capsuleId || !capsules.length) return null;
+    const capsule = capsules.find((x) => String(x.id) === capsuleId);
+    return capsule || null;
+  }, [capsuleId, capsules]);
+
+  const noteId = params.get('note');
+  const linkedNoteTarget = useMemo(() => {
+    if (!noteId || !loveNotes.length) return null;
+    return loveNotes.find((x) => String(x.id) === noteId) || null;
+  }, [noteId, loveNotes]);
+
+  const effectiveTab = linkedCapsuleTarget ? 'capsules' : linkedNoteTarget ? 'notes' : tab;
+  const effectiveHighlightCapsuleId = linkedCapsuleTarget?.id ?? null;
+  const effectiveHighlightNoteId = linkedNoteTarget?.id ?? null;
+
+  useEffect(() => {
+    if (!linkedCapsuleTarget) return undefined;
+    const sig = `capsule:${linkedCapsuleTarget.id}`;
+    if (deepLinkHandled.current === sig) return undefined;
+    deepLinkHandled.current = sig;
+    queueMicrotask(() => {
+      if (linkedCapsuleTarget.is_opened) setOpened(linkedCapsuleTarget);
+      else if (!linkedCapsuleTarget.is_locked) void openCapsule(linkedCapsuleTarget);
+    });
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`capsule-${linkedCapsuleTarget.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedCapsuleTarget, openCapsule]);
+
+  useEffect(() => {
+    if (!linkedNoteTarget) return undefined;
+    const sig = `note:${linkedNoteTarget.id}`;
+    if (deepLinkHandled.current === sig) return undefined;
+    deepLinkHandled.current = sig;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`note-${linkedNoteTarget.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedNoteTarget]);
 
   async function saveCapsule() {
     if (!capsuleForm.title.trim() || !capsuleForm.unlock_date) {
@@ -159,14 +199,6 @@ export default function Forever() {
     }
   }
 
-  function MediaPlayer({ url, type }) {
-    const src = resolveMediaUrl(url);
-    if (!src) return null;
-    if (type === 'audio') return <audio controls className="mt-4 w-full" src={src} />;
-    if (type === 'video') return <video controls className="mt-4 max-h-64 w-full rounded-xl" src={src} />;
-    return null;
-  }
-
   async function saveNote() {
     if (!noteForm.content.trim()) return toast('Write something', 'error');
     try {
@@ -176,18 +208,6 @@ export default function Forever() {
       setNoteForm(emptyNote);
     } catch {
       toast('Save failed', 'error');
-    }
-  }
-
-  async function openCapsule(c) {
-    if (c.is_locked) return toast(`Unlocks in ${c.days_until_unlock} days`, 'error');
-    try {
-      const result = await capsuleOps.open(c.id);
-      romanceUnlock();
-      setOpened(result);
-      toast('Capsule opened', 'success');
-    } catch (e) {
-      toast(e.message || 'Still locked', 'error');
     }
   }
 
@@ -202,15 +222,15 @@ export default function Forever() {
       </SectionHint>
 
       <div className="mb-8 flex gap-2">
-        <Button variant={tab === 'capsules' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('capsules')}>
+        <Button variant={effectiveTab === 'capsules' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('capsules')}>
           <Lock size={14} /> Time capsules
         </Button>
-        <Button variant={tab === 'notes' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('notes')}>
+        <Button variant={effectiveTab === 'notes' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('notes')}>
           <StickyNote size={14} /> Love notes
         </Button>
       </div>
 
-      {tab === 'capsules' && (
+      {effectiveTab === 'capsules' && (
         <>
           <Button variant="primary" className="mb-8" onClick={() => setShowCapsuleForm(true)}>
             <Plus size={18} /> Seal a letter
@@ -220,7 +240,7 @@ export default function Forever() {
             locked={locked}
             ready={ready}
             opened={openedList}
-            highlightId={highlightCapsuleId}
+            highlightId={effectiveHighlightCapsuleId}
             onOpen={openCapsule}
             onDelete={(id) => capsuleOps.remove(id)}
           />
@@ -233,7 +253,7 @@ export default function Forever() {
                   <Card key={c.id}>
                     <h3 className="font-display text-xl">{c.title}</h3>
                     <p className="mt-3 whitespace-pre-wrap">{c.content}</p>
-                    <MediaPlayer url={c.media_url} type={c.media_type} />
+                    <CapsuleMediaPlayer url={c.media_url} type={c.media_type} />
                     <p className="mt-4 text-sm text-muted">— {c.author}</p>
                   </Card>
                 ))}
@@ -243,7 +263,7 @@ export default function Forever() {
         </>
       )}
 
-      {tab === 'notes' && (
+      {effectiveTab === 'notes' && (
         <>
           <Button variant="primary" className="mb-8" onClick={() => setShowNoteForm(true)}>
             <Heart size={18} /> Write love note
@@ -260,7 +280,7 @@ export default function Forever() {
               <Card
                 key={n.id}
                 id={`note-${n.id}`}
-                className={`border-accent/10 ${highlightNoteId === n.id ? 'ring-2 ring-accent' : ''}`}
+                className={`border-accent/10 ${effectiveHighlightNoteId === n.id ? 'ring-2 ring-accent' : ''}`}
               >
                 {n.mood && <Badge tone="accent">{n.mood}</Badge>}
                 {n.letter_template && (
@@ -310,13 +330,13 @@ export default function Forever() {
           {MOOD_OPTIONS.map((m) => <option key={m}>{m}</option>)}
         </Select>
 
-        {moodPrompts.length > 0 && (
+        {displayedMoodPrompts.length > 0 && (
           <div className="mt-4 rounded-2xl border border-accent/20 bg-accent/5 p-4">
             <p className="mb-3 flex items-center gap-2 text-sm text-accent-soft">
               <Feather size={14} /> Prompts for {noteForm.mood}
             </p>
             <div className="flex flex-wrap gap-2">
-              {moodPrompts.map((p) => (
+              {displayedMoodPrompts.map((p) => (
                 <button
                   key={p.id}
                   type="button"
@@ -352,7 +372,7 @@ export default function Forever() {
           <>
             <h3 className="font-display text-3xl">{opened.title}</h3>
             <p className="mt-4 whitespace-pre-wrap text-lg leading-relaxed">{opened.content}</p>
-            <MediaPlayer url={opened.media_url} type={opened.media_type} />
+            <CapsuleMediaPlayer url={opened.media_url} type={opened.media_type} />
             <p className="mt-6 text-muted">— {opened.author}</p>
           </>
         )}

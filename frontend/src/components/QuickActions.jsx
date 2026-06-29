@@ -10,10 +10,10 @@ export default function QuickActions() {
       <Button variant="primary" size="sm" onClick={() => navigate('/moments?new=1')}>
         <Plus size={16} /> Quick memory
       </Button>
-      <Button variant="secondary" size="sm" onClick={() => navigate('/forever?tab=notes')}>
+      <Button variant="secondary" size="sm" onClick={() => navigate('/forever?tab=notes&new=1')}>
         <Heart size={16} /> Love note
       </Button>
-      <Button variant="secondary" size="sm" onClick={() => navigate('/someday')}>
+      <Button variant="secondary" size="sm" onClick={() => navigate('/someday?new=1')}>
         <Sparkles size={16} /> Add dream
       </Button>
     </div>

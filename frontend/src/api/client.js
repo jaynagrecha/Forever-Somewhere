@@ -1,4 +1,6 @@
 /** Backend URL — web (static) talks to api (Docker). Api URL uses same-origin when it serves the build. */
+import { TOKEN_KEY } from '../utils/constants';
+
 export const PRODUCTION_API = 'https://forever-somewhere-api.onrender.com';
 export const PRODUCTION_WEB = 'https://forever-somewhere-web.onrender.com';
 
@@ -40,7 +42,7 @@ export function getApiBase() {
   return resolveApiBase();
 }
 
-let coupleTokenGetter = () => (typeof window !== 'undefined' ? localStorage.getItem('forever_couple_token') : null);
+let coupleTokenGetter = () => (typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null);
 
 export function setCoupleTokenGetter(fn) {
   coupleTokenGetter = fn;
@@ -133,8 +135,6 @@ export const api = {
 
   getStats: () => request('/api/stats'),
   getOnThisDay: () => request('/api/memories/on-this-day'),
-  getInsights: () => request('/api/insights'),
-  getCalendar: () => request('/api/calendar'),
   getNotificationFeed: () => request('/api/notifications/feed'),
   search: (q) => request(`/api/search?q=${encodeURIComponent(q)}`),
 
@@ -201,6 +201,7 @@ export const api = {
   subscribePush: (data) => request('/api/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
 
   importLocal: (data) => request('/api/import/local', { method: 'POST', body: JSON.stringify(data) }),
+  exportArchive: () => request('/api/export'),
 
   getActivity: (limit = 20) => request(`/api/activity?limit=${limit}`),
   getAlbums: () => request('/api/albums'),

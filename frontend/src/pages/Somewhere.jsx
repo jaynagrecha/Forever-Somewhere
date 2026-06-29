@@ -34,7 +34,20 @@ export default function Somewhere() {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ date: '', occasion: '', notes: '' });
   const [viewMode, setViewMode] = useState('pins');
-  const [highlightPinId, setHighlightPinId] = useState(null);
+  const pinId = params.get('pin');
+  const linkedHighlightPinId = useMemo(() => {
+    if (!pinId || !mapLocations.length) return null;
+    return mapLocations.some((l) => String(l.pinId) === pinId) ? Number(pinId) : null;
+  }, [pinId, mapLocations]);
+  const effectiveViewMode = linkedHighlightPinId != null ? 'pins' : viewMode;
+
+  useEffect(() => {
+    if (linkedHighlightPinId == null) return undefined;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`map-pin-${linkedHighlightPinId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedHighlightPinId]);
 
   const routePoints = useMemo(
     () =>
@@ -56,18 +69,6 @@ export default function Somewhere() {
       return { lat, lng, count };
     });
   }, [mapLocations]);
-
-  useEffect(() => {
-    const pinId = params.get('pin');
-    if (!pinId || !mapLocations.length) return;
-    const pin = mapLocations.find((l) => String(l.pinId) === pinId);
-    if (!pin) return;
-    setHighlightPinId(Number(pinId));
-    setViewMode('pins');
-    requestAnimationFrame(() => {
-      document.getElementById(`map-pin-${pinId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  }, [params, mapLocations]);
 
   async function savePin() {
     if (!selected?.lat) return toast('Select a location first', 'error');
@@ -130,10 +131,10 @@ export default function Somewhere() {
       <div className="overflow-hidden rounded-3xl shadow-2xl shadow-black/50">
         <MapContainer center={[22.59, 78.96]} zoom={4} className="h-[55vh] min-h-[320px] w-full md:h-[70vh]">
           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-          {viewMode === 'route' && routePoints.length > 1 && (
+          {effectiveViewMode === 'route' && routePoints.length > 1 && (
             <Polyline positions={routePoints} pathOptions={{ color: '#ff4d6d', weight: 3, opacity: 0.7 }} />
           )}
-          {viewMode === 'heat' &&
+          {effectiveViewMode === 'heat' &&
             heatCounts.map((h) => (
               <CircleMarker
                 key={`${h.lat}-${h.lng}`}
@@ -142,13 +143,13 @@ export default function Somewhere() {
                 pathOptions={{ color: '#ff4d6d', fillColor: '#ff4d6d', fillOpacity: 0.35 }}
               />
             ))}
-          {(viewMode === 'pins' || viewMode === 'route') &&
+          {(effectiveViewMode === 'pins' || effectiveViewMode === 'route') &&
             mapLocations.map((loc) => (
             <Marker
               key={loc.key}
               position={[loc.lat, loc.lng]}
               eventHandlers={
-                highlightPinId && loc.pinId === highlightPinId
+                linkedHighlightPinId && loc.pinId === linkedHighlightPinId
                   ? { add: (e) => { e.target.openPopup(); } }
                   : undefined
               }
@@ -195,7 +196,7 @@ export default function Somewhere() {
           <Card
             key={loc.key}
             id={loc.pinId ? `map-pin-${loc.pinId}` : undefined}
-            className={loc.pinId === highlightPinId ? 'ring-2 ring-accent' : ''}
+            className={loc.pinId === linkedHighlightPinId ? 'ring-2 ring-accent' : ''}
           >
             <h3 className="font-display text-xl">{loc.title?.split(',')[0]}</h3>
             <p className="mt-1 text-sm text-muted">

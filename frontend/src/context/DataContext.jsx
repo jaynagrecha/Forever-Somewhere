@@ -6,9 +6,10 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { api, isApiAvailable, getApiBase } from '../api/client';
+import { api, isApiAvailable } from '../api/client';
 import { useAuth } from './AuthContext';
 import { computeInsights, searchAll } from '../utils/insights';
+import { LS_KEYS } from '../utils/constants';
 import {
   buildImportPayload,
   clearLocalAfterMigration,
@@ -19,16 +20,6 @@ import {
 } from '../utils/storage';
 
 const DataContext = createContext(null);
-
-const LS_KEYS = {
-  memories: 'forever_somewhere_memories',
-  pins: 'forever_somewhere_places',
-  dreams: 'forever_somewhere_dreams',
-  capsules: 'forever_somewhere_capsules',
-  loveNotes: 'forever_somewhere_love_notes',
-  importantDates: 'forever_somewhere_important_dates',
-  promptAnswers: 'forever_somewhere_prompt_answers',
-};
 
 function normalizeMemory(m) {
   return {
@@ -131,13 +122,10 @@ export function DataProvider({ children }) {
   }, [refreshAll]);
 
   useEffect(() => {
-    if (!isAuthed || !token) {
-      setLoading(false);
-      setConnecting(false);
-      setOnline(false);
-      return;
-    }
-    connect();
+    if (!isAuthed || !token) return undefined;
+    queueMicrotask(() => {
+      void connect();
+    });
   }, [connect, isAuthed, token]);
 
   useEffect(() => {
@@ -435,10 +423,12 @@ export function DataProvider({ children }) {
     return Array.from(map.values());
   }, [tripPins, memories]);
 
+  const sessionActive = isAuthed && !!token;
+
   const value = {
-    loading,
-    connecting,
-    online,
+    loading: sessionActive ? loading : false,
+    connecting: sessionActive ? connecting : false,
+    online: sessionActive ? online : false,
     reconnect: connect,
     memories,
     tripPins,
