@@ -5,8 +5,9 @@ import Button from './ui/Button';
 import { useData } from '../context/DataContext';
 
 export default function OnThisDayBanner() {
-  const { onThisDay } = useData();
-  if (!onThisDay?.length) return null;
+  const { insights } = useData();
+  const onThisDay = insights.on_this_day || [];
+  if (!onThisDay.length) return null;
 
   return (
     <Card highlight className="mb-8 border-accent/20">

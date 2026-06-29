@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera, Map, Sparkles, Heart, MapPin, Star, Settings, Calendar, Film, Moon,
@@ -21,7 +21,6 @@ import QuickActions from '../components/QuickActions';
 import OurSeasonWidget from '../components/OurSeasonWidget';
 import YearInReview from '../components/YearInReview';
 import { useData } from '../context/DataContext';
-import { api } from '../api/client';
 
 const sections = [
   { icon: Camera, title: 'Moments', desc: 'Our past — dated memories, photos, and milestones.', route: '/moments', accent: 'from-rose-500/20 to-transparent' },
@@ -32,9 +31,8 @@ const sections = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { loading, connecting, online, reconnect, memories, dreams, loveNotes, tripPins } = useData();
+  const { loading, connecting, online, reconnect, memories, dreams, loveNotes, tripPins, insights } = useData();
   const { t } = useLocale();
-  const [extra, setExtra] = useState(null);
   const [showOpening, setShowOpening] = useState(
     () => localStorage.getItem('forever_names_anim_seen') !== '1'
   );
@@ -51,12 +49,6 @@ export default function Dashboard() {
       loveNotes: loveNotes.length,
     };
   }, [memories, dreams, loveNotes, tripPins]);
-
-  useEffect(() => {
-    if (online) {
-      api.getExtraInsights().then(setExtra).catch(() => setExtra(null));
-    }
-  }, [online, memories.length]);
 
   const syncLabel = connecting ? '◌ Connecting…' : online ? `● ${t('synced')}` : `○ ${t('offline')}`;
 
@@ -108,9 +100,7 @@ export default function Dashboard() {
           <Stat icon={Sparkles} label="Dreams" value={statCounts.dreams} />
           <Stat icon={Star} label="Milestones" value={statCounts.milestones} />
           <Stat icon={Heart} label="Love notes" value={statCounts.loveNotes} />
-          {extra && (
-            <Stat icon={Sparkle} label="Memory streak (wk)" value={extra.memory_streak_weeks} />
-          )}
+          <Stat icon={Sparkle} label="Memory streak (wk)" value={insights.memory_streak_weeks} />
         </div>
       )}
 

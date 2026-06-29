@@ -17,6 +17,30 @@ export function computeInsights({ memories, dreams, capsules, importantDates = [
     return d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   });
 
+  const memoryDates = [
+    ...new Set(
+      memories
+        .map((m) => m.date)
+        .filter(Boolean)
+        .map((d) => {
+          const parsed = new Date(d);
+          parsed.setHours(0, 0, 0, 0);
+          return parsed.getTime();
+        })
+        .filter((t) => !Number.isNaN(t))
+    ),
+  ].sort((a, b) => a - b);
+
+  let memoryStreakWeeks = 0;
+  if (memoryDates.length) {
+    memoryStreakWeeks = 1;
+    for (let i = memoryDates.length - 1; i > 0; i -= 1) {
+      const gapDays = (memoryDates[i] - memoryDates[i - 1]) / (1000 * 60 * 60 * 24);
+      if (gapDays <= 7) memoryStreakWeeks += 1;
+      else break;
+    }
+  }
+
   const total = dreams.length;
   const completed = dreams.filter((d) => d.status === 'Completed').length;
   const bucketProgress = total ? Math.round((completed / total) * 1000) / 10 : 0;
@@ -84,8 +108,10 @@ export function computeInsights({ memories, dreams, capsules, importantDates = [
   }
 
   return {
+    on_this_day: onThisDay,
     on_this_day_count: onThisDay.length,
     bucket_progress: bucketProgress,
+    memory_streak_weeks: memoryStreakWeeks,
     next_anniversary: nextAnniversary,
     upcoming: upcoming.slice(0, 12),
   };
