@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v13';
+const CACHE = 'forever-somewhere-v14';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {

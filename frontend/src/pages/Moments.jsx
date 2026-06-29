@@ -284,7 +284,7 @@ export default function Moments() {
       </div>
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={editingId ? 'Edit Memory' : 'Add Memory'} wide>
-        <div className="sticky top-0 z-10 -mx-6 mb-6 space-y-4 border-b border-white/10 bg-card px-6 pb-5 md:-mx-8 md:px-8">
+        <div className="space-y-4">
           <Input
             label="Title"
             value={form.title}
@@ -293,9 +293,6 @@ export default function Moments() {
             autoFocus
           />
           <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-        </div>
-
-        <div className="space-y-4">
         <LocationSearch value={locationQuery} onChange={setLocationQuery} onSelect={(loc) => setForm({ ...form, location: loc.title, lat: loc.lat, lng: loc.lng })} />
         <Input label="Spotify / playlist URL" value={form.playlist_url} onChange={(e) => setForm({ ...form, playlist_url: e.target.value })} placeholder="https://open.spotify.com/..." />
         <div className="mt-4">
