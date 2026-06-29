@@ -214,6 +214,9 @@ export default function AfterDark() {
                 <option value="someday">Someday</option>
                 <option value="hard_no">Hard no (boundary)</option>
               </Select>
+              <p className="mb-2 text-sm text-muted">
+                Chips optional — pick the same one to match on a topic, or leave blank and match on Curious/Into alone.
+              </p>
               <div className="flex flex-wrap gap-2">
                 {jarChips.map((c) => (
                   <button
@@ -237,11 +240,21 @@ export default function AfterDark() {
           <div className="space-y-3">
             {jar.map((s) => (
               <Card key={s.id}>
-                <p className="text-xs uppercase text-muted">{s.slip_type}{s.matched_id ? ' · matched' : ''}</p>
-                <p className="mt-2">{s.body || '(hidden until revealed)'}</p>
+                <p className="text-xs uppercase text-muted">
+                  {s.slip_type}
+                  {s.chip ? ` · ${s.chip}` : ''}
+                  {s.matched_id ? ' · matched' : ''}
+                  {s.revealed ? ' · revealed' : ''}
+                </p>
+                <p className="mt-2">
+                  {s.body
+                    || (s.matched_id && !s.revealed
+                      ? '(matched — tap Reveal match on your slip to unlock both)'
+                      : '(hidden — waiting for a partner match on the same Curious/Into or chip)')}
+                </p>
                 <p className="mt-2 text-xs text-muted">— {s.author}</p>
                 {s.is_mine && s.matched_id && !s.revealed && (
-                  <Button size="sm" className="mt-3" onClick={() => api.revealDesireSlip(s.id, author).then(loadJar)}>
+                  <Button size="sm" className="mt-3" variant="primary" onClick={() => api.revealDesireSlip(s.id, author).then(loadJar)}>
                     Reveal match
                   </Button>
                 )}

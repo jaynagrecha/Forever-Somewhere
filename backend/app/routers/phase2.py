@@ -431,6 +431,53 @@ def draw_card(
     return random.choice(pool)
 
 
+def _link_slip_match(row: DesireSlip, match: DesireSlip) -> None:
+    row.matched_id = match.id
+    match.matched_id = row.id
+    if row.anonymous and match.anonymous:
+        row.revealed = True
+        match.revealed = True
+
+
+def _try_match_slip(db: Session, couple_id: int, row: DesireSlip) -> None:
+    if row.slip_type not in ("curious", "into"):
+        return
+    chip = (row.chip or "").strip().lower()
+    base = (
+        db.query(DesireSlip)
+        .filter(
+            DesireSlip.couple_id == couple_id,
+            DesireSlip.author != row.author,
+            DesireSlip.slip_type.in_(("curious", "into")),
+            DesireSlip.matched_id.is_(None),
+        )
+        .order_by(DesireSlip.created_at.asc())
+    )
+    if chip:
+        partner = base.filter(DesireSlip.chip == chip).first()
+    else:
+        partner = base.filter(
+            DesireSlip.slip_type == row.slip_type,
+            (DesireSlip.chip == "") | (DesireSlip.chip.is_(None)),
+        ).first()
+    if partner:
+        _link_slip_match(row, partner)
+
+
+def _repair_unmatched_slips(db: Session, couple_id: int) -> None:
+    """Pair legacy slips that share type but were never matched (no chip required)."""
+    rows = (
+        db.query(DesireSlip)
+        .filter(DesireSlip.couple_id == couple_id, DesireSlip.matched_id.is_(None))
+        .order_by(DesireSlip.created_at.asc())
+        .all()
+    )
+    for row in rows:
+        if row.matched_id or row.slip_type not in ("curious", "into"):
+            continue
+        _try_match_slip(db, couple_id, row)
+
+
 @router.get("/desire-jar")
 def list_desire_slips(
     viewer: str = Query(min_length=1, max_length=64),
@@ -438,6 +485,8 @@ def list_desire_slips(
     db: Session = Depends(get_db),
 ) -> dict:
     _require_after_dark(couple, db)
+    _repair_unmatched_slips(db, couple.id)
+    db.commit()
     rows = (
         db.query(DesireSlip)
         .filter(DesireSlip.couple_id == couple.id)
@@ -447,7 +496,7 @@ def list_desire_slips(
     out = []
     for r in rows:
         is_mine = r.author == viewer
-        show_body = is_mine or r.revealed or (r.matched_id and r.revealed)
+        show_body = is_mine or r.revealed
         if r.anonymous and not is_mine and not r.revealed:
             show_body = False
         out.append(
@@ -455,7 +504,7 @@ def list_desire_slips(
                 "id": r.id,
                 "slip_type": r.slip_type,
                 "body": r.body if show_body else "",
-                "chip": r.chip if show_body else "",
+                "chip": r.chip or "",
                 "anonymous": r.anonymous,
                 "author": r.author if (is_mine or r.revealed) else ("Anonymous" if r.anonymous else "Partner"),
                 "matched_id": r.matched_id,
@@ -487,22 +536,7 @@ def add_desire_slip(
     db.add(row)
     db.flush()
 
-    if payload.chip and payload.slip_type in ("curious", "into"):
-        partner_slips = (
-            db.query(DesireSlip)
-            .filter(
-                DesireSlip.couple_id == couple.id,
-                DesireSlip.author != author,
-                DesireSlip.chip == row.chip,
-                DesireSlip.slip_type.in_(("curious", "into")),
-                DesireSlip.matched_id.is_(None),
-            )
-            .all()
-        )
-        if partner_slips:
-            match = partner_slips[0]
-            row.matched_id = match.id
-            match.matched_id = row.id
+    _try_match_slip(db, couple.id, row)
 
     log_activity(
         db,
