@@ -26,6 +26,9 @@ _vapid_instance = None
 
 _STALE_HTTP = frozenset({400, 401, 403, 404, 410})
 
+# Apple rejects VAPID sub claims with @localhost, .local, etc. (FCM still accepts them).
+_INVALID_VAPID_SUB_MARKERS = ("@localhost", "@127.0.0.1", ".local", "@local")
+
 
 @dataclass(frozen=True)
 class PushSendResult:
@@ -40,6 +43,24 @@ def _format_push(kind: str, title: str, author: str) -> tuple[str, str]:
     if kind == "ping":
         body = title
     return head, body
+
+
+def vapid_sub_claim() -> str:
+    """JWT `sub` for VAPID — must be mailto: or https:// with a domain Apple accepts."""
+    fallback = (settings.public_app_url or "https://forever-somewhere-web.onrender.com").strip()
+    sub = (settings.vapid_claims_email or "").strip()
+    if not sub:
+        return fallback
+
+    if not sub.startswith(("mailto:", "https://", "http://")):
+        sub = f"mailto:{sub}" if "@" in sub else fallback
+
+    lower = sub.lower()
+    if any(marker in lower for marker in _INVALID_VAPID_SUB_MARKERS):
+        logger.info("VAPID sub %r rejected by Apple rules — using %s", sub, fallback)
+        return fallback
+
+    return sub
 
 
 def _get_vapid():
@@ -79,7 +100,7 @@ def send_web_push_detailed(sub: PushSubscription, payload: dict) -> PushSendResu
             },
             data=json.dumps(payload),
             vapid_private_key=vapid,
-            vapid_claims={"sub": settings.vapid_claims_email},
+            vapid_claims={"sub": vapid_sub_claim()},
             content_encoding="aes128gcm",
             ttl=86400,
         )

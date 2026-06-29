@@ -10,9 +10,11 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./forever_somewhere.db"
     upload_dir: Path = Path("uploads")
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    public_app_url: str = "https://forever-somewhere-web.onrender.com"
     vapid_public_key: str = ""
     vapid_private_key: str = ""
-    vapid_claims_email: str = "mailto:jay@forever-somewhere.local"
+    # Apple Web Push rejects mailto:@localhost and *.local — use a real https URL or email.
+    vapid_claims_email: str = "https://forever-somewhere-web.onrender.com"
 
     def cors_origin_list(self) -> list[str]:
         origins = []
