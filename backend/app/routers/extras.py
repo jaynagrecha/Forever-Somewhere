@@ -370,6 +370,7 @@ def upsert_season(
         db.flush()
         log_activity(
             db,
+            couple_id=couple.id,
             kind="season",
             title=payload.title.strip(),
             author=payload.author,

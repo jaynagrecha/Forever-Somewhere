@@ -17,6 +17,7 @@ def build_activity_route(kind: str, entity_id: int | None, fallback: str = "/das
         "dream": f"/someday?dream={entity_id}",
         "trip_pin": f"/somewhere?pin={entity_id}",
         "ping": "/dashboard",
+        "season": "/mood-board",
     }
     return routes.get(kind, fallback)
 
