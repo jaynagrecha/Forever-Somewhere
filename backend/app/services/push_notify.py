@@ -1,6 +1,8 @@
 """Web Push delivery to partner devices (lock-screen when app is closed)."""
 import json
 import logging
+import threading
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,17 @@ _PUSH_COPY: dict[str, tuple[str, str]] = {
     "album": ("Trip album 📁", "{author} created “{title}”"),
 }
 
+_vapid_lock = threading.Lock()
+_vapid_instance = None
+
+_STALE_HTTP = frozenset({400, 401, 403, 404, 410})
+
+
+@dataclass(frozen=True)
+class PushSendResult:
+    status: str  # ok | stale | error
+    detail: str = ""
+
 
 def _format_push(kind: str, title: str, author: str) -> tuple[str, str]:
     template = _PUSH_COPY.get(kind, ("Partner activity", "{author} — {title}"))
@@ -29,11 +42,33 @@ def _format_push(kind: str, title: str, author: str) -> tuple[str, str]:
     return head, body
 
 
+def _get_vapid():
+    """Load VAPID signer once (PEM must use from_pem — from_string breaks PEM keys)."""
+    global _vapid_instance
+    if not settings.vapid_private_key:
+        return None
+    with _vapid_lock:
+        if _vapid_instance is None:
+            from py_vapid import Vapid02
+
+            _vapid_instance = Vapid02.from_pem(settings.vapid_private_key.encode("utf-8"))
+        return _vapid_instance
+
+
 def send_web_push(sub: PushSubscription, payload: dict) -> str:
     """Returns 'ok', 'stale' (subscription expired), or 'error'."""
+    return send_web_push_detailed(sub, payload).status
+
+
+def send_web_push_detailed(sub: PushSubscription, payload: dict) -> PushSendResult:
     if not settings.vapid_private_key or not settings.vapid_public_key:
         logger.warning("Web Push skipped: VAPID keys not configured")
-        return "error"
+        return PushSendResult("error", "VAPID not configured")
+
+    vapid = _get_vapid()
+    if vapid is None:
+        return PushSendResult("error", "VAPID signer unavailable")
+
     try:
         from pywebpush import WebPushException, webpush
 
@@ -43,21 +78,54 @@ def send_web_push(sub: PushSubscription, payload: dict) -> str:
                 "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
             },
             data=json.dumps(payload),
-            vapid_private_key=settings.vapid_private_key,
+            vapid_private_key=vapid,
             vapid_claims={"sub": settings.vapid_claims_email},
+            content_encoding="aes128gcm",
             ttl=86400,
         )
-        return "ok"
+        return PushSendResult("ok")
     except WebPushException as exc:
         status = getattr(exc.response, "status_code", None)
-        if status in (404, 410):
-            logger.info("Removing stale push subscription %s (HTTP %s)", sub.id, status)
-            return "stale"
-        logger.warning("Web Push failed for subscription %s: %s", sub.id, exc)
-        return "error"
+        body = ""
+        if exc.response is not None:
+            try:
+                body = (exc.response.text or "")[:180]
+            except Exception:
+                body = str(exc)[:180]
+        detail = f"HTTP {status}" if status else str(exc)[:180]
+        if body and body not in detail:
+            detail = f"{detail}: {body}"
+
+        if status in _STALE_HTTP:
+            logger.info(
+                "Stale push subscription %s (%s): %s",
+                sub.id,
+                (sub.owner_name or "Unknown"),
+                detail,
+            )
+            return PushSendResult("stale", detail)
+
+        logger.warning(
+            "Web Push failed for subscription %s (%s): %s",
+            sub.id,
+            (sub.owner_name or "Unknown"),
+            detail,
+        )
+        return PushSendResult("error", detail)
     except Exception as exc:
-        logger.warning("Web Push failed for subscription %s: %s", sub.id, exc)
-        return "error"
+        detail = str(exc)[:180]
+        logger.warning("Web Push failed for subscription %s: %s", sub.id, detail)
+        return PushSendResult("error", detail)
+
+
+def _delete_stale(db: Session, stale: list[PushSubscription]) -> None:
+    for sub in stale:
+        try:
+            db.delete(sub)
+        except Exception:
+            pass
+    if stale:
+        db.flush()
 
 
 def notify_partner_devices(
@@ -92,19 +160,11 @@ def notify_partner_devices(
         owner = (sub.owner_name or "").strip().lower()
         if author_key and owner and owner == author_key:
             continue
-        result = send_web_push(sub, payload)
-        if result == "ok":
+        result = send_web_push_detailed(sub, payload)
+        if result.status == "ok":
             sent += 1
-        elif result == "stale":
+        elif result.status == "stale":
             stale.append(sub)
 
-    for sub in stale:
-        try:
-            db.delete(sub)
-        except Exception:
-            pass
-
-    if stale:
-        db.flush()
-
+    _delete_stale(db, stale)
     return sent

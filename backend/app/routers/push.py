@@ -1,4 +1,3 @@
-import json
 import uuid
 from pathlib import Path
 
@@ -10,10 +9,17 @@ from app.core.database import get_db
 from app.core.uploads import couple_upload_dir
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, PushSubscription
-from app.schemas.common import PushSubscribePayload
-from app.services.push_notify import send_web_push
+from app.schemas.common import PushSubscribePayload, PushTestPayload
+from app.services.push_notify import send_web_push_detailed
 
 router = APIRouter(prefix="/api/push", tags=["push"])
+
+_TEST_PAYLOAD = {
+    "title": "Forever, Somewhere 💕",
+    "body": "Push is working on this device!",
+    "tag": "push-test",
+    "route": "/dashboard",
+}
 
 
 @router.get("/vapid-public-key")
@@ -30,7 +36,13 @@ def push_status(
     return {
         "vapid_configured": bool(settings.vapid_public_key and settings.vapid_private_key),
         "subscriber_count": len(subs),
-        "devices": [{"owner_name": s.owner_name or "Unknown"} for s in subs],
+        "devices": [
+            {
+                "owner_name": s.owner_name or "Unknown",
+                "endpoint_hint": s.endpoint[-24:] if s.endpoint else "",
+            }
+            for s in subs
+        ],
     }
 
 
@@ -41,6 +53,11 @@ def subscribe(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     owner = (payload.owner_name or "").strip()[:64]
+    p256dh = (payload.keys.get("p256dh") or "").strip()
+    auth = (payload.keys.get("auth") or "").strip()
+    if not payload.endpoint or not p256dh or not auth:
+        raise HTTPException(status_code=400, detail="Invalid push subscription keys")
+
     existing = (
         db.query(PushSubscription)
         .filter(
@@ -50,38 +67,98 @@ def subscribe(
         .first()
     )
     if existing:
-        existing.p256dh = payload.keys.get("p256dh", "")
-        existing.auth = payload.keys.get("auth", "")
-        existing.owner_name = owner or existing.owner_name
+        existing.p256dh = p256dh
+        existing.auth = auth
+        if owner:
+            existing.owner_name = owner
     else:
         db.add(
             PushSubscription(
                 couple_id=couple.id,
                 endpoint=payload.endpoint,
-                p256dh=payload.keys.get("p256dh", ""),
-                auth=payload.keys.get("auth", ""),
+                p256dh=p256dh,
+                auth=auth,
                 owner_name=owner,
             )
         )
+
+    if owner:
+        db.query(PushSubscription).filter(
+            PushSubscription.couple_id == couple.id,
+            PushSubscription.owner_name == "",
+            PushSubscription.endpoint != payload.endpoint,
+        ).delete(synchronize_session=False)
+
     db.commit()
     return {"status": "subscribed", "owner_name": owner}
 
 
 @router.post("/test", status_code=200)
 def test_push(
+    payload: PushTestPayload | None = None,
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Send a test notification to all devices registered for this couple."""
-    subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
-    payload = {
-        "title": "Forever, Somewhere 💕",
-        "body": "Push is working on this device!",
-        "tag": "push-test",
-        "route": "/dashboard",
+    """Send a test notification. Pass endpoint to target this device only."""
+    body = payload or PushTestPayload()
+    all_subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
+    subs = all_subs
+
+    if body.endpoint:
+        subs = [s for s in all_subs if s.endpoint == body.endpoint]
+        if body.this_device_only and not subs:
+            return {
+                "sent": 0,
+                "failed": 0,
+                "subscribers": len(all_subs),
+                "this_device_missing": True,
+                "failures": [],
+            }
+
+    sent = 0
+    failed = 0
+    failures: list[str] = []
+    stale: list[PushSubscription] = []
+
+    for sub in subs:
+        result = send_web_push_detailed(sub, _TEST_PAYLOAD)
+        if result.status == "ok":
+            sent += 1
+        else:
+            failed += 1
+            label = sub.owner_name or "Unknown"
+            failures.append(f"{label}: {result.detail or result.status}")
+            if result.status == "stale":
+                stale.append(sub)
+
+    for sub in stale:
+        db.delete(sub)
+    if stale:
+        db.commit()
+
+    return {
+        "sent": sent,
+        "failed": failed,
+        "subscribers": len(all_subs),
+        "targeted": len(subs),
+        "this_device_missing": False,
+        "failures": failures[:5],
     }
-    sent = sum(1 for s in subs if send_web_push(s, payload) == "ok")
-    return {"sent": sent, "subscribers": len(subs)}
+
+
+@router.delete("/subscriptions", status_code=200)
+def clear_subscriptions(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Remove all push registrations for this couple (both partners re-enable after)."""
+    removed = (
+        db.query(PushSubscription)
+        .filter(PushSubscription.couple_id == couple.id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"removed": removed}
 
 
 @router.post("/unsubscribe", status_code=204)
@@ -133,6 +210,7 @@ def broadcast_notifications(
     items = build_notification_feed(db, couple.id)
     subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
     sent = 0
+    stale: list[PushSubscription] = []
     for item in items[:5]:
         payload = {
             "title": item.title,
@@ -141,6 +219,15 @@ def broadcast_notifications(
             "route": item.route,
         }
         for sub in subs:
-            if send_web_push(sub, payload):
+            result = send_web_push_detailed(sub, payload)
+            if result.status == "ok":
                 sent += 1
+            elif result.status == "stale":
+                stale.append(sub)
+
+    for sub in stale:
+        db.delete(sub)
+    if stale:
+        db.commit()
+
     return {"sent": sent, "subscribers": len(subs)}

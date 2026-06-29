@@ -325,6 +325,11 @@ class PushSubscribePayload(BaseModel):
     owner_name: str = ""
 
 
+class PushTestPayload(BaseModel):
+    endpoint: str = ""
+    this_device_only: bool = False
+
+
 class OnThisDayOut(BaseModel):
     memories: list[MemoryOut]
 

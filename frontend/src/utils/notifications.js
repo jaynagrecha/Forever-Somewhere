@@ -179,7 +179,19 @@ export async function ensurePushRegistered() {
 
 export async function testPushOnDevice() {
   const { api } = await import('../api/client');
-  return api.testPush();
+  let endpoint = '';
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      endpoint = sub?.endpoint || '';
+    }
+  } catch {
+    /* best effort */
+  }
+  return api.testPush(
+    endpoint ? { endpoint, this_device_only: true } : { this_device_only: false }
+  );
 }
 
 export async function runNotificationPoll() {

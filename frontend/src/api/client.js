@@ -133,7 +133,8 @@ export const api = {
 
   getVapidKey: () => request('/api/push/vapid-public-key'),
   getPushStatus: () => request('/api/push/status'),
-  testPush: () => request('/api/push/test', { method: 'POST' }),
+  testPush: (data = {}) => request('/api/push/test', { method: 'POST', body: JSON.stringify(data) }),
+  clearPushSubscriptions: () => request('/api/push/subscriptions', { method: 'DELETE' }),
   subscribePush: (data) => request('/api/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
 
   importLocal: (data) => request('/api/import/local', { method: 'POST', body: JSON.stringify(data) }),

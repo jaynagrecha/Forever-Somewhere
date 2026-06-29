@@ -85,14 +85,35 @@ export default function Settings() {
   async function sendTestPush() {
     try {
       const res = await testPushOnDevice();
-      toast(
-        res.sent > 0
-          ? `Test sent to ${res.sent} device(s)`
-          : 'No devices registered — enable push on both phones',
-        res.sent > 0 ? 'success' : 'error'
-      );
+      api.getPushStatus().then(setPushStatus).catch(() => {});
+      if (res.sent > 0) {
+        toast(`Test delivered to ${res.sent} device(s)`, 'success');
+        return;
+      }
+      if (res.this_device_missing) {
+        toast('This device is not registered — tap Re-register this device', 'error');
+        return;
+      }
+      if ((res.subscribers ?? 0) === 0) {
+        toast('No devices registered — enable push on each phone', 'error');
+        return;
+      }
+      const hint = res.failures?.[0] ? ` (${res.failures[0]})` : '';
+      toast(`Push delivery failed — tap Re-register on each phone${hint}`, 'error');
     } catch {
       toast('Test push failed', 'error');
+    }
+  }
+
+  async function resetAllPushDevices() {
+    if (!window.confirm('Clear push on all devices? Each phone will need Re-register after.')) return;
+    try {
+      await api.clearPushSubscriptions();
+      setPushStatus(null);
+      toast('All push registrations cleared — Re-register on each phone', 'success');
+      api.getPushStatus().then(setPushStatus).catch(() => {});
+    } catch {
+      toast('Could not reset push devices', 'error');
     }
   }
 
@@ -180,6 +201,7 @@ export default function Settings() {
               <Button variant="secondary" onClick={disableNotifications}>Disable on this device</Button>
               <Button variant="secondary" onClick={reregisterPush}>Re-register this device</Button>
               <Button variant="secondary" onClick={sendTestPush}>Send test push</Button>
+              <Button variant="secondary" onClick={resetAllPushDevices}>Reset all devices</Button>
             </div>
           ) : (
             <Button className="mt-4" variant="primary" onClick={enableNotifications}>Enable on this device</Button>
@@ -189,10 +211,13 @@ export default function Settings() {
               Server: {pushStatus.vapid_configured ? 'ready' : 'starting…'} ·{' '}
               {pushStatus.subscriber_count} device(s) registered
               {pushStatus.devices?.length > 0 && (
-                <> ({pushStatus.devices.map((d) => d.owner_name).filter(Boolean).join(', ')})</>
+                <> ({pushStatus.devices.map((d) => d.owner_name).join(', ')})</>
               )}
             </p>
           )}
+          <p className="mt-2 text-xs text-muted">
+            Set &quot;I am …&quot; before enabling push. Extra &quot;Unknown&quot; entries are old registrations — use Reset all devices, then Re-register on each phone.
+          </p>
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
             <p className="font-medium text-white">iPhone lock-screen push (both partners)</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
