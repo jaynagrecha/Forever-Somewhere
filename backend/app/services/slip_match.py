@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 MATCHABLE_TYPES = frozenset({"curious", "into"})
 
 # Calibrated for ~95% precision on "aligned" badges (few false positives).
-BASE_THRESHOLD = 0.78
+BASE_THRESHOLD = 0.76
 SAME_CHIP_THRESHOLD = 0.72
 DIFFERENT_CHIP_THRESHOLD = 0.84
 UNMATCH_THRESHOLD = 0.65
@@ -44,6 +44,7 @@ _SYNONYM_GROUPS = (
     {"adventure", "travel", "trip", "getaway", "weekend", "away"},
     {"words", "talk", "talking", "voice", "whisper", "say", "tell"},
     {"night", "tonight", "evening", "bedtime", "sleep"},
+    {"kiss", "kissing", "first", "intimate", "feel", "felt", "lips"},
 )
 
 

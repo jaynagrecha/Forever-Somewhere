@@ -235,13 +235,27 @@ export default function AfterDark() {
             </form>
           </Card>
           <div className="space-y-3">
+            {jar.some((s) => s.matched_id) && (
+              <p className="text-sm text-accent-soft">
+                Notes marked <strong className="text-white">aligned</strong> mean the app read both and thinks you&apos;re thinking about the same thing.
+              </p>
+            )}
             {jar.map((s) => (
-              <Card key={s.id}>
+              <Card
+                key={s.id}
+                className={s.matched_id ? 'border-accent/40 ring-1 ring-accent/20' : ''}
+              >
                 <p className="text-xs uppercase text-muted">
                   {s.slip_type}
                   {s.chip ? ` · ${s.chip}` : ''}
                   {s.matched_id ? ` · aligned${s.match_score != null ? ` (${Math.round(s.match_score * 100)}%)` : ''}` : ''}
                 </p>
+                {s.matched_id && (
+                  <p className="mt-2 text-xs font-medium text-accent-soft">
+                    Aligned with your partner&apos;s note
+                    {s.match_score != null ? ` · ${Math.round(s.match_score * 100)}% similar` : ''}
+                  </p>
+                )}
                 <p className="mt-2 whitespace-pre-wrap">{s.body}</p>
                 <p className="mt-2 text-xs text-muted">— {s.author}</p>
                 {s.is_mine && (
