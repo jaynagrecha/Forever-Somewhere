@@ -46,11 +46,11 @@ def list_answers(
 @router.post("/answers", response_model=PromptAnswerOut, status_code=201)
 def save_answer(
     payload: PromptAnswerCreate,
-    actor: str = Query(min_length=1, max_length=64),
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> PromptAnswerOut:
-    assert_posts_as_self(actor, payload.author, couple)
+    assert_posts_as_self(author, payload.author, couple)
     row = DatePromptAnswer(couple_id=couple.id, **payload.model_dump())
     db.add(row)
     db.commit()

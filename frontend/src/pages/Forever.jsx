@@ -14,7 +14,7 @@ import { usePostingAuthor } from '../context/AuthContext';
 import PostingAs from '../components/PostingAs';
 import { canManageByAuthor } from '../utils/author';
 import { MOOD_OPTIONS } from '../utils/constants';
-import { api } from '../api/client';
+import { api, formatApiError } from '../api/client';
 import { resolveMediaUrl } from '../utils/media';
 import { romanceUnlock } from '../utils/romanceSounds';
 
@@ -143,8 +143,8 @@ export default function Forever() {
       toast('Time capsule sealed', 'success');
       setShowCapsuleForm(false);
       setCapsuleForm(buildEmptyCapsule(actor));
-    } catch {
-      toast('Could not seal capsule', 'error');
+    } catch (err) {
+      toast(formatApiError(err), 'error');
     }
   }
 
@@ -210,8 +210,8 @@ export default function Forever() {
       toast('Love note saved', 'success');
       setShowNoteForm(false);
       setNoteForm(buildEmptyNote(actor));
-    } catch {
-      toast('Save failed', 'error');
+    } catch (err) {
+      toast(formatApiError(err), 'error');
     }
   }
 

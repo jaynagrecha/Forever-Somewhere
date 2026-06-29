@@ -64,11 +64,11 @@ def list_love_notes(
 @router.post("/love-notes", response_model=LoveNoteOut, status_code=201)
 def create_love_note(
     payload: LoveNoteCreate,
-    actor: str = Query(min_length=1, max_length=64),
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> LoveNoteOut:
-    assert_posts_as_self(actor, payload.author, couple)
+    assert_posts_as_self(author, payload.author, couple)
     data = payload.model_dump()
     data.pop("reveal_date", None)
     row = LoveNote(couple_id=couple.id, **data, reveal_date=None)

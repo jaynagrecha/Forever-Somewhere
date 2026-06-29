@@ -72,12 +72,12 @@ def random_memory(
 @router.post("", response_model=MemoryOut, status_code=201)
 def create_memory(
     payload: MemoryCreate,
-    actor: str = Query(min_length=1, max_length=64),
+    author: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> MemoryOut:
     added_by = payload.added_by or "Us"
-    assert_posts_as_self(actor, added_by, couple)
+    assert_posts_as_self(author, added_by, couple)
     row = Memory(
         couple_id=couple.id,
         title=payload.title,
