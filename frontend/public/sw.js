@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v18';
+const CACHE = 'forever-somewhere-v19';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {
@@ -9,7 +9,14 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(['/manifest.json', '/favicon.svg']).catch(() => {}))
+    caches.open(CACHE).then((c) => c.addAll([
+      '/manifest.json',
+      '/favicon.svg',
+      '/logo-icon.svg',
+      '/icons/icon-192.png',
+      '/icons/icon-512.png',
+      '/apple-touch-icon.png',
+    ]).catch(() => {}))
   );
   self.skipWaiting();
 });
@@ -56,8 +63,8 @@ self.addEventListener('push', (e) => {
     self.registration.showNotification(data.title || 'Forever, Somewhere', {
       body: data.body || '',
       tag: data.tag || 'forever',
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { route: data.route || '/dashboard' },
       vibrate: [100, 50, 100],
     })

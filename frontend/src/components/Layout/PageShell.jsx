@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Camera, Heart, Map, Sparkles, Home, Settings } from 'lucide-react';
 import StarBackground from '../StarBackground';
+import BrandLogo from '../BrandLogo';
 import Button from '../ui/Button';
 
 const nav = [
@@ -23,6 +24,10 @@ export default function PageShell({ title, subtitle, children, backTo = '/dashbo
   return (
     <StarBackground>
       <div className="mx-auto min-h-screen max-w-7xl px-4 pb-24 pt-6 md:px-8 md:pt-8">
+        <div className="mb-6 animate-fade-in">
+          <BrandLogo size="sm" to="/dashboard" showText={false} className="mx-auto md:hidden" />
+          <BrandLogo size="sm" to="/dashboard" className="hidden md:inline-flex" />
+        </div>
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4 animate-fade-in">
           <div>
             <Link to={backTo}>

@@ -48,7 +48,7 @@ export default function Dashboard() {
   return (
     <>
       {showOpening && <OpeningNamesAnimation onDone={() => setShowOpening(false)} />}
-      <PageShell title="Forever, Somewhere" subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
+      <PageShell subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
       {!loading && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs">{syncLabel}</span>

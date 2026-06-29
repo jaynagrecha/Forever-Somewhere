@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, KeyRound, Sparkles } from 'lucide-react';
 import StarBackground from '../components/StarBackground';
+import BrandLogo from '../components/BrandLogo';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -67,12 +68,13 @@ export default function Landing() {
   return (
     <StarBackground>
       <div className="flex min-h-screen flex-col items-center justify-center px-6 py-16 text-center animate-fade-in">
+        <BrandLogo size="lg" className="mb-6 flex-col gap-4 md:flex-row" textClassName="text-center md:text-left" />
         <p className="mb-4 text-sm uppercase tracking-[0.3em] text-accent-soft">
           {isAuthed && partnerNames.length >= 2
             ? `${partnerNames[0]} & ${partnerNames[1]}`
             : 'For every couple'}
         </p>
-        <h1 className="font-display text-5xl leading-tight md:text-7xl">Forever, Somewhere</h1>
+        <h1 className="sr-only">Forever, Somewhere</h1>
         <p className="mt-6 max-w-lg text-lg text-muted md:text-xl">
           {subtitle}
           <br />

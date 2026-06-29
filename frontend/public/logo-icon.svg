@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Forever, Somewhere">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070b14"/>
+      <stop offset="45%" stop-color="#12101f"/>
+      <stop offset="100%" stop-color="#220818"/>
+    </linearGradient>
+    <linearGradient id="rose" x1="140" y1="140" x2="372" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffc2d1"/>
+      <stop offset="40%" stop-color="#ff6b8a"/>
+      <stop offset="100%" stop-color="#e83557"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="280" r="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff4d6d" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#ff4d6d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <circle cx="92" cy="88" r="2.4" fill="#fff" opacity="0.75"/>
+  <circle cx="418" cy="104" r="1.8" fill="#fff" opacity="0.55"/>
+  <circle cx="384" cy="72" r="1.2" fill="#fff" opacity="0.45"/>
+  <circle cx="128" cy="420" r="1.6" fill="#fff" opacity="0.35"/>
+  <circle cx="430" cy="392" r="2" fill="#fff" opacity="0.4"/>
+
+  <ellipse cx="256" cy="292" rx="148" ry="108" fill="url(#glow)"/>
+
+  <circle cx="256" cy="268" r="132" fill="none" stroke="#ff8fa3" stroke-width="2.5" stroke-opacity="0.28" stroke-dasharray="10 14"/>
+
+  <path fill="url(#rose)" opacity="0.88" filter="url(#soft)" transform="translate(-34 18) scale(0.9)" d="M238 358c0 0-98-78-98-132 0-32 24-52 48-40 18 10 32 28 42 48 10-20 24-38 42-48 24-12 48 8 48 40 0 54-98 132-98 132z"/>
+  <path fill="url(#rose)" filter="url(#soft)" transform="translate(34 18) scale(0.9)" d="M274 358c0 0-98-78-98-132 0-32 24-52 48-40 18 10 32 28 42 48 10-20 24-38 42-48 24-12 48 8 48 40 0 54-98 132-98 132z"/>
+
+  <circle cx="256" cy="286" r="16" fill="#ffd6e0"/>
+  <circle cx="256" cy="286" r="8" fill="#fff" opacity="0.85"/>
+
+  <path fill="#ffd6e0" opacity="0.92" d="M388 124l5 16 16 5-16 5-5 16-5-16-16-5 16-5z"/>
+</svg>

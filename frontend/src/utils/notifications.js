@@ -41,7 +41,7 @@ export function showLocalNotification({ title, body, tag, route = '/dashboard' }
   const n = new Notification(title, {
     body,
     tag,
-    icon: '/favicon.svg',
+    icon: '/icons/icon-192.png',
     data: { route },
   });
   n.onclick = () => {

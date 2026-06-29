@@ -4,14 +4,32 @@
   "description": "Private couple spaces — memories, together-days widget, love pings, and letters",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#020617",
+  "background_color": "#070b14",
   "theme_color": "#ff4d6d",
   "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -20,14 +38,14 @@
       "short_name": "Together",
       "description": "See how many days you've been together",
       "url": "/dashboard",
-      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Thinking of you",
       "short_name": "Ping",
       "description": "Send a love ping to your partner",
       "url": "/dashboard",
-      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
