@@ -28,6 +28,12 @@ export function formatPartnerActivityAlert(item) {
       return { title: 'Trip album 📁', body: `${author} created “${title}”` };
     case 'season':
       return { title: 'Our season 🎨', body: `${author} shared their mood` };
+    case 'note_reaction':
+      return { title: 'Note reaction 💕', body: `${author} ${title}` };
+    case 'desire_jar':
+      return { title: 'After Dark 🌙', body: 'Something new in the desire jar' };
+    case 'vault':
+      return { title: 'After Dark 🌙', body: `${author} left something for you` };
     default:
       return { title: 'Partner activity', body: `${author} — ${title}` };
   }

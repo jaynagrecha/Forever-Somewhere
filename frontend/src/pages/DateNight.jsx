@@ -11,6 +11,7 @@ import { usePostingAuthor } from '../context/AuthContext';
 import PostingAs from '../components/PostingAs';
 import { canManageByAuthor } from '../utils/author';
 import DateNightDeck from '../components/DateNightDeck';
+import TruthOrDare from '../components/TruthOrDare';
 import { api } from '../api/client';
 
 function pickRandomPrompt(list) {
@@ -22,6 +23,12 @@ export default function DateNight() {
   const { promptAnswers, promptOps } = useData();
   const { toast } = useToast();
   const { author: actor, needsSetup } = usePostingAuthor();
+  const [prompts, setPrompts] = useState([]);
+  const [current, setCurrent] = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [answer, setAnswer] = useState('');
+  const [promptsLoading, setPromptsLoading] = useState(true);
+  const [promptsError, setPromptsError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -120,6 +127,8 @@ export default function DateNight() {
           <p className="text-muted">No questions available yet.</p>
         )}
       </Card>
+
+      <TruthOrDare />
 
       <DateNightDeck />
 

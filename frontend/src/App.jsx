@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
 import Slideshow from './pages/Slideshow';
 import DateNight from './pages/DateNight';
+import AfterDark from './pages/AfterDark';
 import OurStory from './pages/OurStory';
 import Quiz from './pages/Quiz';
 import StarMap from './pages/StarMap';
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/calendar" element={<Guard><Calendar /></Guard>} />
       <Route path="/slideshow" element={<Guard><Slideshow /></Guard>} />
       <Route path="/date-night" element={<Guard><DateNight /></Guard>} />
+      <Route path="/after-dark" element={<Guard><AfterDark /></Guard>} />
       <Route path="/story" element={<Guard><OurStory /></Guard>} />
       <Route path="/quiz" element={<Guard><Quiz /></Guard>} />
       <Route path="/star-map" element={<Guard><StarMap /></Guard>} />

@@ -85,6 +85,12 @@ function withAuthorQuery(path, author) {
   return `${path}${sep}author=${encodeURIComponent(author)}`;
 }
 
+function withOwnerQuery(path, owner) {
+  if (!owner) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}owner=${encodeURIComponent(owner)}`;
+}
+
 async function request(path, options = {}) {
   const apiBase = getApiBase();
   const headers = { ...options.headers };
@@ -255,6 +261,51 @@ export const api = {
       }),
     });
   },
+
+  getPhase2Prefs: () => request('/api/phase2/prefs'),
+  updatePhase2Prefs: (data) => request('/api/phase2/prefs', { method: 'PUT', body: JSON.stringify(data) }),
+  getNoteReactions: () => request('/api/phase2/note-reactions'),
+  reactToNote: (noteId, emoji, author) =>
+    request(withAuthorQuery(`/api/phase2/love-notes/${noteId}/react`, author), {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    }),
+  unreactNote: (noteId, author) =>
+    request(withAuthorQuery(`/api/phase2/love-notes/${noteId}/react`, author), { method: 'DELETE' }),
+  getStolenNote: (owner) => request(`/api/phase2/stolen-note?owner=${encodeURIComponent(owner)}`),
+  stealNote: (noteId, owner) =>
+    request(withOwnerQuery('/api/phase2/stolen-note', owner), { method: 'POST', body: JSON.stringify({ note_id: noteId }) }),
+  releaseStolenNote: (owner) =>
+    request(withOwnerQuery('/api/phase2/stolen-note', owner), { method: 'DELETE' }),
+  getAnniversaryChain: () => request('/api/phase2/anniversary-chain'),
+  getDeck: (tier) => request(`/api/phase2/deck?tier=${encodeURIComponent(tier)}`),
+  drawDeck: (data) => request('/api/phase2/deck/draw', { method: 'POST', body: JSON.stringify(data) }),
+  addDeckCard: (data, author) =>
+    request(withAuthorQuery('/api/phase2/deck/custom', author), { method: 'POST', body: JSON.stringify(data) }),
+  getDesireJar: (viewer) => request(`/api/phase2/desire-jar?viewer=${encodeURIComponent(viewer)}`),
+  addDesireSlip: (data, author) =>
+    request(withAuthorQuery('/api/phase2/desire-jar', author), { method: 'POST', body: JSON.stringify(data) }),
+  revealDesireSlip: (id, author) =>
+    request(withAuthorQuery(`/api/phase2/desire-jar/${id}/reveal`, author), { method: 'POST' }),
+  deleteDesireSlip: (id, author) =>
+    request(withAuthorQuery(`/api/phase2/desire-jar/${id}`, author), { method: 'DELETE' }),
+  getVault: (viewer) => request(`/api/phase2/vault?viewer=${encodeURIComponent(viewer)}`),
+  createVaultEntry: (data, author) =>
+    request(withAuthorQuery('/api/phase2/vault', author), { method: 'POST', body: JSON.stringify(data) }),
+  updateVaultVisibility: (id, visibility, author) =>
+    request(withAuthorQuery(`/api/phase2/vault/${id}/visibility`, author), {
+      method: 'PUT',
+      body: JSON.stringify({ visibility }),
+    }),
+  acceptVault: (id, author) =>
+    request(withAuthorQuery(`/api/phase2/vault/${id}/accept`, author), { method: 'POST' }),
+  deleteVaultEntry: (id, author) =>
+    request(withAuthorQuery(`/api/phase2/vault/${id}`, author), { method: 'DELETE' }),
+  getEnergy: () => request('/api/phase2/energy'),
+  setEnergy: (data, author) =>
+    request(withAuthorQuery('/api/phase2/energy', author), { method: 'POST', body: JSON.stringify(data) }),
+  checkIn: (data, author) =>
+    request(withAuthorQuery('/api/phase2/check-in', author), { method: 'POST', body: JSON.stringify(data) }),
 };
 
 function sleep(ms) {

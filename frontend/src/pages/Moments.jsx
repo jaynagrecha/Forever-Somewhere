@@ -15,7 +15,7 @@ import { canManageByAuthor } from '../utils/author';
 import { api } from '../api/client';
 import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
-import { MEMORY_TAGS } from '../utils/constants';
+import { MEMORY_TAGS, FIRST_TAGS } from '../utils/constants';
 import PolaroidMemory from '../components/PolaroidMemory';
 
 const emptyForm = {
@@ -74,6 +74,7 @@ export default function Moments() {
     return params.get('new') === '1' ? params.get('location') || '' : '';
   });
   const [tagFilter, setTagFilter] = useState('');
+  const [firstsOnly, setFirstsOnly] = useState(false);
   const [albums, setAlbums] = useState([]);
   const [albumFilter, setAlbumFilter] = useState(() => readSearchParams().get('album') || '');
   const [showAlbumForm, setShowAlbumForm] = useState(false);
@@ -121,6 +122,7 @@ export default function Moments() {
   }, [memoryId, memories]);
 
   const filtered = memories.filter((m) => {
+    if (firstsOnly && !(m.tags || []).some((t) => FIRST_TAGS.includes(t))) return false;
     if (tagFilter && !(m.tags || []).includes(tagFilter)) return false;
     if (albumFilter && String(m.album_id) !== albumFilter) return false;
     return true;
@@ -286,6 +288,13 @@ export default function Moments() {
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Filter size={16} className="text-muted" />
+        <Button
+          size="sm"
+          variant={firstsOnly ? 'primary' : 'secondary'}
+          onClick={() => setFirstsOnly((v) => !v)}
+        >
+          Firsts only
+        </Button>
         <select
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}

@@ -162,6 +162,8 @@ class TimeCapsule(Base):
     media_type: Mapped[str] = mapped_column(String(32), default="")
     is_opened: Mapped[bool] = mapped_column(Boolean, default=False)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    capsule_type: Mapped[str] = mapped_column(String(32), default="standard")
+    year_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -251,3 +253,79 @@ class CoupleMeta(Base):
     couple_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     mood_board_json: Mapped[str] = mapped_column(Text, default="[]")
     quiz_results_json: Mapped[str] = mapped_column(Text, default="[]")
+    phase2_prefs_json: Mapped[str] = mapped_column(Text, default="{}")
+    custom_deck_json: Mapped[str] = mapped_column(Text, default="[]")
+
+
+class NoteReaction(Base):
+    __tablename__ = "note_reactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    note_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    emoji: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class StolenNote(Base):
+    __tablename__ = "stolen_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    note_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    stolen_until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DesireSlip(Base):
+    __tablename__ = "desire_slips"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    slip_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    chip: Mapped[str] = mapped_column(String(64), default="")
+    anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
+    matched_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    revealed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class VaultEntry(Base):
+    __tablename__ = "vault_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    entry_kind: Mapped[str] = mapped_column(String(32), default="fantasy")
+    title: Mapped[str] = mapped_column(String(255), default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility: Mapped[str] = mapped_column(String(32), default="private")
+    voice_url: Mapped[str] = mapped_column(String(512), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class EnergyStatus(Base):
+    __tablename__ = "energy_status"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    energy: Mapped[str] = mapped_column(String(32), default="playful")
+    surprises: Mapped[str] = mapped_column(String(32), default="ask")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class IntimacyCheckIn(Base):
+    __tablename__ = "intimacy_checkins"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    author: Mapped[str] = mapped_column(String(64), nullable=False)
+    rating: Mapped[str] = mapped_column(String(32), nullable=False)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

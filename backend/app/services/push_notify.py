@@ -18,7 +18,10 @@ _PUSH_COPY: dict[str, tuple[str, str]] = {
     "capsule": ("Time capsule 🔒", "{author} sealed “{title}”"),
     "dream": ("New dream ✨", "{author} added “{title}”"),
     "trip_pin": ("New map pin 📍", "{author} pinned “{title}”"),
-    "album": ("Trip album 📁", "{author} created “{title}”"),
+    "season": ("Our season 🎨", "{author} shared their mood"),
+    "desire_jar": ("After Dark 🌙", "Something new in the desire jar"),
+    "vault": ("After Dark 🌙", "{author} left something for you"),
+    "note_reaction": ("Note reaction", "{author} {title}"),
 }
 
 _vapid_lock = threading.Lock()

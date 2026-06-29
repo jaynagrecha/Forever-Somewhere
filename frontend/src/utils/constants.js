@@ -2,6 +2,8 @@ export const MEMORY_TAGS = [
   'First Trip',
   'First Kiss',
   'First Date',
+  'First Fight & Makeup',
+  'First Home Cooked',
   'Engagement',
   'Wedding',
   'Anniversary',
@@ -12,6 +14,18 @@ export const MEMORY_TAGS = [
   'Quiet Day',
   'Family',
 ];
+
+/** Tags counted as "firsts" for the dedicated timeline filter */
+export const FIRST_TAGS = [
+  'First Trip',
+  'First Kiss',
+  'First Date',
+  'First Fight & Makeup',
+  'First Home Cooked',
+];
+
+export const AFTER_DARK_PIN_KEY = 'forever_after_dark_pin';
+export const AFTER_DARK_UNLOCK_KEY = 'forever_after_dark_unlock_until';
 
 export const MOOD_OPTIONS = ['Joyful', 'Peaceful', 'Excited', 'Grateful', 'Romantic', 'Silly', 'Cozy'];
 

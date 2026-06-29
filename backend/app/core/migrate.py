@@ -143,11 +143,21 @@ def run_migrations() -> None:
             _add_col(conn, "dreams", "created_by", "created_by VARCHAR(64) DEFAULT 'Us'", cols)
             _add_col(conn, "dreams", "couple_id", "couple_id INTEGER", cols)
 
+        if "couple_meta" in tables:
+            cols = {c["name"] for c in inspector.get_columns("couple_meta")}
+            _add_col(conn, "couple_meta", "phase2_prefs_json", "phase2_prefs_json TEXT DEFAULT '{}'", cols)
+            _add_col(conn, "couple_meta", "custom_deck_json", "custom_deck_json TEXT DEFAULT '[]'", cols)
+
         if "time_capsules" in tables:
             cols = {c["name"] for c in inspector.get_columns("time_capsules")}
-            _add_col(conn, "time_capsules", "media_url", "media_url VARCHAR(512) DEFAULT ''", cols)
-            _add_col(conn, "time_capsules", "media_type", "media_type VARCHAR(32) DEFAULT ''", cols)
-            _add_col(conn, "time_capsules", "couple_id", "couple_id INTEGER", cols)
+            if "media_url" not in cols:
+                _add_col(conn, "time_capsules", "media_url", "media_url VARCHAR(512) DEFAULT ''", cols)
+            if "media_type" not in cols:
+                _add_col(conn, "time_capsules", "media_type", "media_type VARCHAR(32) DEFAULT ''", cols)
+            if "couple_id" not in cols:
+                _add_col(conn, "time_capsules", "couple_id", "couple_id INTEGER", cols)
+            _add_col(conn, "time_capsules", "capsule_type", "capsule_type VARCHAR(32) DEFAULT 'standard'", cols)
+            _add_col(conn, "time_capsules", "year_index", "year_index INTEGER", cols)
 
         if "love_notes" in tables:
             cols = {c["name"] for c in inspector.get_columns("love_notes")}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield, Lock } from 'lucide-react';
+import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield, Lock, Flame } from 'lucide-react';
 import PageShell from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -20,6 +20,7 @@ import {
 } from '../utils/notifications';
 import { parseUtcIso } from '../utils/datetime';
 import PartnerRecoverySetup from '../components/PartnerRecoverySetup';
+import { AFTER_DARK_PIN_KEY } from '../utils/constants';
 
 const AUDIT_LABELS = {
   verify_otp_sent: 'Verification code sent',
@@ -53,6 +54,10 @@ export default function Settings() {
   const [pushStatus, setPushStatus] = useState(null);
   const [recoverySettings, setRecoverySettings] = useState(null);
   const [recoveryForm, setRecoveryForm] = useState({ ...EMPTY_RECOVERY_FORM });
+  const [phase2Prefs, setPhase2Prefs] = useState(null);
+  const [anniversaryDate, setAnniversaryDate] = useState('');
+  const [afterDarkPin, setAfterDarkPin] = useState('');
+  const [afterDarkPinConfirm, setAfterDarkPinConfirm] = useState('');
 
   const mySlot = devicePartnerSlot(partnerNames, myName);
   const myRecovery =
@@ -73,6 +78,10 @@ export default function Settings() {
     if (online) {
       api.getPushStatus().then(setPushStatus).catch(() => setPushStatus(null));
       api.getRecoverySettings().then(setRecoverySettings).catch(() => setRecoverySettings(null));
+      api.getPhase2Prefs().then((p) => {
+        setPhase2Prefs(p);
+        setAnniversaryDate(p.anniversary_date || '');
+      }).catch(() => setPhase2Prefs(null));
     }
   }, [online, notifOn]);
 
@@ -83,6 +92,39 @@ export default function Settings() {
     setAnnTitle('');
     setAnnDate('');
   }
+
+  async function savePhase2Prefs(patch) {
+    if (!myName) return toast('Set who you are on this device first', 'error');
+    try {
+      await api.updatePhase2Prefs({ actor: myName, ...patch });
+      const p = await api.getPhase2Prefs();
+      setPhase2Prefs(p);
+      toast('Saved', 'success');
+    } catch {
+      toast('Save failed', 'error');
+    }
+  }
+
+  function saveAfterDarkPin() {
+    if (afterDarkPin && afterDarkPin !== afterDarkPinConfirm) {
+      return toast('PINs do not match', 'error');
+    }
+    if (afterDarkPin) {
+      localStorage.setItem(AFTER_DARK_PIN_KEY, afterDarkPin);
+      toast('After Dark PIN set on this device', 'success');
+    } else {
+      localStorage.removeItem(AFTER_DARK_PIN_KEY);
+      toast('PIN removed on this device', 'success');
+    }
+    setAfterDarkPin('');
+    setAfterDarkPinConfirm('');
+  }
+
+  const myAfterDarkOptIn = myName === partnerNames[0]
+    ? phase2Prefs?.partner1_after_dark
+    : myName === partnerNames[1]
+      ? phase2Prefs?.partner2_after_dark
+      : false;
 
   async function handleExport() {
     await exportArchive(api, {
@@ -407,6 +449,63 @@ export default function Settings() {
             <Button className="mt-3" size="sm" variant="primary" onClick={() => reconnect()}>
               Retry sync
             </Button>
+          )}
+        </Card>
+
+        <Card className="md:col-span-2 border-rose-500/20">
+          <Flame className="mb-3 text-accent-soft" size={24} />
+          <h2 className="font-display text-xl">After Dark</h2>
+          <p className="mt-2 text-sm text-muted">
+            A private room for desire jar, wild deck, vault, and energy — both partners must opt in.
+          </p>
+          {phase2Prefs && (
+            <div className="mt-4 space-y-4">
+              <p className="text-sm">
+                Status:{' '}
+                {phase2Prefs.after_dark_unlocked ? (
+                  <span className="text-emerald-300">Unlocked for both</span>
+                ) : (
+                  <span className="text-muted">Waiting for both partners to opt in</span>
+                )}
+              </p>
+              {identityLocked && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(myAfterDarkOptIn)}
+                    onChange={(e) => savePhase2Prefs({ opt_in_after_dark: e.target.checked })}
+                  />
+                  I opt in to After Dark on this device ({myName})
+                </label>
+              )}
+              <Input
+                label="Relationship anniversary (for yearly letter chain)"
+                type="date"
+                value={anniversaryDate}
+                onChange={(e) => setAnniversaryDate(e.target.value)}
+              />
+              <Button size="sm" variant="secondary" onClick={() => savePhase2Prefs({ anniversary_date: anniversaryDate })}>
+                Save anniversary date
+              </Button>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(phase2Prefs.tease_energy_dashboard)}
+                  onChange={(e) => savePhase2Prefs({ tease_energy_dashboard: e.target.checked })}
+                />
+                Show partner&apos;s &quot;Us tonight&quot; energy on dashboard (vague tease)
+              </label>
+              <div className="border-t border-white/10 pt-4">
+                <p className="text-sm text-muted">Optional PIN on this device (not synced — each phone sets its own)</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <Input label="New PIN" type="password" value={afterDarkPin} onChange={(e) => setAfterDarkPin(e.target.value)} />
+                  <Input label="Confirm PIN" type="password" value={afterDarkPinConfirm} onChange={(e) => setAfterDarkPinConfirm(e.target.value)} />
+                </div>
+                <Button className="mt-3" size="sm" variant="secondary" onClick={saveAfterDarkPin}>
+                  {afterDarkPin ? 'Set PIN' : 'Clear PIN'}
+                </Button>
+              </div>
+            </div>
           )}
         </Card>
 

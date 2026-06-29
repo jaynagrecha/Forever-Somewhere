@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lock, Heart, Plus, StickyNote, Mic, Video, Feather } from 'lucide-react';
+import { Lock, Heart, Plus, StickyNote, Mic, Video, Feather, Pin } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import CapsuleWall from '../components/CapsuleWall';
+import AnniversaryChain, { NoteReactionsBar } from '../components/AnniversaryChain';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
@@ -54,6 +55,7 @@ export default function Forever() {
   const [noteForm, setNoteForm] = useState(() => buildEmptyNote(actor));
   const [opened, setOpened] = useState(null);
   const [moodPrompts, setMoodPrompts] = useState([]);
+  const [noteReactions, setNoteReactions] = useState([]);
   const deepLinkHandled = useRef('');
 
   const openCapsule = useCallback(
@@ -70,6 +72,24 @@ export default function Forever() {
     },
     [capsuleOps, toast]
   );
+
+  useEffect(() => {
+    api.getNoteReactions().then(setNoteReactions).catch(() => setNoteReactions([]));
+  }, [loveNotes.length]);
+
+  const refreshReactions = useCallback(() => {
+    api.getNoteReactions().then(setNoteReactions).catch(() => {});
+  }, []);
+
+  async function stealNote(noteId) {
+    try {
+      await api.stealNote(noteId, actor);
+      toast('Note pinned on your dashboard for 7 days', 'success');
+      refreshActivity();
+    } catch (err) {
+      toast(err.message || 'Could not steal note', 'error');
+    }
+  }
 
   useEffect(() => {
     if (!noteForm.mood) return undefined;
@@ -240,6 +260,8 @@ export default function Forever() {
 
       {effectiveTab === 'capsules' && (
         <>
+          <AnniversaryChain capsuleOps={capsuleOps} onRefresh={refreshActivity} />
+
           <Button variant="primary" className="mb-8" onClick={() => setShowCapsuleForm(true)}>
             <Plus size={18} /> Seal a letter
           </Button>
@@ -298,6 +320,18 @@ export default function Forever() {
                 <p className="mt-3 whitespace-pre-wrap leading-relaxed">{n.content}</p>
                 {n.voice_url && <audio controls className="mt-3 w-full" src={resolveMediaUrl(n.voice_url)} />}
                 <p className="mt-4 text-sm text-muted">— {n.author}</p>
+                <NoteReactionsBar
+                  noteId={n.id}
+                  author={actor}
+                  noteAuthor={n.author}
+                  reactions={noteReactions}
+                  onChange={refreshReactions}
+                />
+                {n.author !== actor && (
+                  <Button size="sm" variant="secondary" className="mt-3" onClick={() => stealNote(n.id)}>
+                    <Pin size={14} /> Steal to dashboard
+                  </Button>
+                )}
                 {canManageByAuthor(n, actor) && (
                   <Button size="sm" variant="danger" className="mt-3" onClick={() => noteOps.remove(n.id, actor)}>Delete</Button>
                 )}

@@ -16,6 +16,9 @@ const KIND_LABEL = {
   trip_pin: '📍 Map pin',
   album: '📁 Album',
   season: '🎨 Our season',
+  note_reaction: '💕 Reaction',
+  desire_jar: '🌙 Desire jar',
+  vault: '🌙 Vault',
 };
 
 const POLL_MS = 12_000;

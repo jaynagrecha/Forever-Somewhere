@@ -197,6 +197,8 @@ class CapsuleBase(BaseModel):
     author: str = "Us"
     media_url: str = ""
     media_type: str = ""
+    capsule_type: str = "standard"
+    year_index: int | None = None
 
 
 class CapsuleCreate(CapsuleBase):

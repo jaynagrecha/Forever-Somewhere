@@ -187,6 +187,8 @@ def _capsule_out(row: TimeCapsule) -> CapsuleOut:
         author=row.author,
         media_url=getattr(row, "media_url", "") or "" if (not locked or row.is_opened) else "",
         media_type=getattr(row, "media_type", "") or "" if (not locked or row.is_opened) else "",
+        capsule_type=getattr(row, "capsule_type", None) or "standard",
+        year_index=getattr(row, "year_index", None),
         is_opened=row.is_opened,
         opened_at=row.opened_at,
         created_at=row.created_at,
@@ -217,7 +219,17 @@ def create_capsule(
     db: Session = Depends(get_db),
 ) -> CapsuleOut:
     assert_posts_as_self(author, payload.author, couple)
-    row = TimeCapsule(couple_id=couple.id, **payload.model_dump())
+    row = TimeCapsule(
+        couple_id=couple.id,
+        title=payload.title,
+        content=payload.content,
+        unlock_date=payload.unlock_date,
+        author=payload.author,
+        media_url=payload.media_url,
+        media_type=payload.media_type,
+        capsule_type=payload.capsule_type or "standard",
+        year_index=payload.year_index,
+    )
     db.add(row)
     db.flush()
     log_activity(

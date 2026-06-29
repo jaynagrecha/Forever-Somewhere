@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera, Map, Sparkles, Heart, MapPin, Star, Settings, Calendar, Film, Moon,
-  BookOpen, Palette, MessageCircleHeart, Sparkle,
+  BookOpen, Palette, MessageCircleHeart, Sparkle, Flame,
 } from 'lucide-react';
 import ActivityFeed from '../components/ActivityFeed';
 import DailyQuestion from '../components/DailyQuestion';
@@ -20,6 +20,9 @@ import BucketProgress from '../components/BucketProgress';
 import QuickActions from '../components/QuickActions';
 import OurSeasonWidget from '../components/OurSeasonWidget';
 import YearInReview from '../components/YearInReview';
+import StolenNoteWidget from '../components/StolenNoteWidget';
+import EnergyTeaseWidget from '../components/EnergyTeaseWidget';
+import { api } from '../api/client';
 import { useData } from '../context/DataContext';
 
 const sections = [
@@ -36,6 +39,11 @@ export default function Dashboard() {
   const [showOpening, setShowOpening] = useState(
     () => localStorage.getItem('forever_names_anim_seen') !== '1'
   );
+  const [afterDarkUnlocked, setAfterDarkUnlocked] = useState(false);
+
+  useEffect(() => {
+    api.getPhase2Prefs().then((p) => setAfterDarkUnlocked(p.after_dark_unlocked)).catch(() => {});
+  }, []);
 
   const statCounts = useMemo(() => {
     const onMap =
@@ -72,6 +80,8 @@ export default function Dashboard() {
       )}
 
       <GlobalSearch />
+      <StolenNoteWidget />
+      <EnergyTeaseWidget />
       <RomanceWidgets />
       <ThinkingOfYou />
       <QuickActions />
@@ -87,6 +97,9 @@ export default function Dashboard() {
         <FeatureLink icon={Calendar} title="Our calendar" desc="All dates in one view" route="/calendar" />
         <FeatureLink icon={Film} title="Slideshow" desc="Fullscreen memory photos" route="/slideshow" />
         <FeatureLink icon={Moon} title="Date night" desc="Questions for us" route="/date-night" />
+        {afterDarkUnlocked && (
+          <FeatureLink icon={Flame} title="After Dark" desc="Private room for both" route="/after-dark" />
+        )}
         <FeatureLink icon={BookOpen} title={t('ourStory')} desc="Milestone timeline" route="/story" />
         <FeatureLink icon={MessageCircleHeart} title={t('quiz')} desc="Compare answers" route="/quiz" />
         <FeatureLink icon={Sparkle} title={t('starMap')} desc="Our constellation" route="/star-map" />
