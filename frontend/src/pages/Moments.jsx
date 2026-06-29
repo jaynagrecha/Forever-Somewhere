@@ -236,7 +236,7 @@ export default function Moments() {
         <select
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm"
+          className="form-select rounded-xl border border-white/10 bg-card px-4 py-2 text-sm"
         >
           <option value="">All tags</option>
           {MEMORY_TAGS.map((t) => (
@@ -246,7 +246,7 @@ export default function Moments() {
         <select
           value={albumFilter}
           onChange={(e) => setAlbumFilter(e.target.value)}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm"
+          className="form-select rounded-xl border border-white/10 bg-card px-4 py-2 text-sm"
         >
           <option value="">All albums</option>
           {albums.map((a) => (

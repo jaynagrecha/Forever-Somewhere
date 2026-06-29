@@ -4,6 +4,7 @@ import Button from './ui/Button';
 import Card from './ui/Card';
 import { Select } from './ui/Input';
 import { useMyName } from '../context/AuthContext';
+import { useActivity } from '../context/ActivityContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../api/client';
 import { romancePing } from '../utils/romanceSounds';
@@ -11,6 +12,7 @@ import { romancePing } from '../utils/romanceSounds';
 export default function ThinkingOfYou() {
   const { toast } = useToast();
   const { myName, setMyName, partnerNames, needsSetup } = useMyName();
+  const { refreshActivity } = useActivity();
   const [busy, setBusy] = useState(false);
   const [lastPing, setLastPing] = useState(null);
 
@@ -22,6 +24,7 @@ export default function ThinkingOfYou() {
     try {
       const res = await api.sendThinkingOfYou({ author: myName });
       romancePing();
+      refreshActivity();
       setLastPing(res.message);
       toast(`Ping sent to ${partner} 💕`, 'success');
     } catch (e) {

@@ -17,7 +17,6 @@ import {
   subscribeToPush,
   requestNotificationPermission,
 } from '../utils/notifications';
-import { getApiBase } from '../api/client';
 
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
@@ -51,20 +50,20 @@ export default function Settings() {
   }
 
   async function enableNotifications() {
-    const ok = await subscribeToPush(getApiBase());
+    const ok = await subscribeToPush();
     if (!ok) {
       const perm = await requestNotificationPermission();
       if (perm) {
         setNotificationsEnabled(true);
         setNotifOn(true);
-        toast('Local reminders enabled', 'success');
+        toast('In-app alerts enabled — for iPhone lock-screen push, see steps below', 'success');
         return;
       }
       toast('Allow notifications in browser settings', 'error');
       return;
     }
     setNotifOn(true);
-    toast('Push notifications enabled', 'success');
+    toast('Push notifications enabled on this device', 'success');
   }
 
   function disableNotifications() {
@@ -139,17 +138,28 @@ export default function Settings() {
           </Card>
         )}
 
-        <Card>
+        <Card className="md:col-span-2">
           <Bell className="mb-3 text-accent-soft" size={24} />
           <h2 className="font-display text-xl">Notifications</h2>
           <p className="mt-2 text-sm text-muted">
-            Anniversaries, capsule unlock days, and On This Day memories.
+            Love pings, anniversaries, capsule unlock days, and partner activity.
           </p>
           {notifOn ? (
-            <Button className="mt-4" variant="secondary" onClick={disableNotifications}>Disable</Button>
+            <Button className="mt-4" variant="secondary" onClick={disableNotifications}>Disable on this device</Button>
           ) : (
-            <Button className="mt-4" variant="primary" onClick={enableNotifications}>Enable reminders</Button>
+            <Button className="mt-4" variant="primary" onClick={enableNotifications}>Enable on this device</Button>
           )}
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
+            <p className="font-medium text-white">iPhone lock-screen push (both partners)</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>Open <strong className="text-accent-soft">Safari</strong> → forever-somewhere-web.onrender.com</li>
+              <li>Share → <strong className="text-accent-soft">Add to Home Screen</strong> (required for iOS push)</li>
+              <li>Open the app from the home screen icon — not Safari tabs</li>
+              <li>Settings here → <strong className="text-accent-soft">Enable on this device</strong> → Allow</li>
+              <li>Set <strong className="text-accent-soft">Who&apos;s on this device?</strong> above</li>
+            </ol>
+            <p className="mt-2 text-xs">Each partner enables push on their own phone. Requires iOS 16.4+.</p>
+          </div>
         </Card>
 
         <Card>

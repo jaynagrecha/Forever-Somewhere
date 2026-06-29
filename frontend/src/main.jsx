@@ -5,19 +5,36 @@ import 'leaflet/dist/leaflet.css';
 import './index.css';
 import App from './App';
 import { DataProvider } from './context/DataContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ActivityProvider } from './context/ActivityContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
-import { checkAndNotify } from './utils/notifications';
+import { runNotificationPoll } from './utils/notifications';
 import { getApiBase } from './api/client';
 
 function NotificationChecker() {
+  const { isAuthed } = useAuth();
+
   useEffect(() => {
-    checkAndNotify(getApiBase());
-    const t = setInterval(() => checkAndNotify(getApiBase()), 60 * 60 * 1000);
-    return () => clearInterval(t);
-  }, []);
+    if (!isAuthed) return undefined;
+
+    runNotificationPoll();
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') runNotificationPoll();
+    }, 20_000);
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') runNotificationPoll();
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isAuthed]);
+
   return null;
 }
 
@@ -28,8 +45,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <ThemeProvider>
           <LocaleProvider>
             <DataProvider>
-              <NotificationChecker />
-              <App />
+              <ActivityProvider>
+                <NotificationChecker />
+                <App />
+              </ActivityProvider>
             </DataProvider>
           </LocaleProvider>
         </ThemeProvider>

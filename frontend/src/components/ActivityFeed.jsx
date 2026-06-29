@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useCallback, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import Card from './ui/Card';
 import { api } from '../api/client';
+import { useActivity } from '../context/ActivityContext';
 
 const KIND_LABEL = {
   ping: '💕 Ping',
@@ -14,30 +15,42 @@ const KIND_LABEL = {
   album: '📁 Album',
 };
 
+const POLL_MS = 12_000;
+
 export default function ActivityFeed({ limit = 6 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { version } = useActivity();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
+  const load = useCallback(() => {
     api
       .getActivity(limit)
-      .then((rows) => {
-        if (alive) setItems(rows);
-      })
-      .catch(() => {
-        if (alive) setItems([]);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
+      .then(setItems)
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, [limit]);
 
-  if (loading) return null;
+  useEffect(() => {
+    load();
+  }, [load, version, location.pathname]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    const id = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('focus', tick);
+    };
+  }, [load]);
+
+  if (loading && !items.length) return null;
   if (!items.length) return null;
 
   return (

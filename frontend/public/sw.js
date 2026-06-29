@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v14';
+const CACHE = 'forever-somewhere-v15';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {
@@ -57,6 +57,7 @@ self.addEventListener('push', (e) => {
       body: data.body,
       tag: data.tag || 'forever',
       icon: '/favicon.svg',
+      badge: '/favicon.svg',
       data: { route: data.route || '/dashboard' },
     })
   );

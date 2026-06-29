@@ -193,3 +193,27 @@ html[data-theme="monsoon"] body {
 html[data-theme="diwali"] body {
   background: linear-gradient(180deg, var(--color-ink), #1f1505);
 }
+
+/* Form selects — readable dropdown options on dark UI */
+.form-select,
+select {
+  color-scheme: dark;
+  appearance: auto;
+}
+
+.form-select option,
+select option {
+  background-color: #111827;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .form-select,
+html[data-theme="light"] select {
+  color-scheme: light;
+}
+
+html[data-theme="light"] .form-select option,
+html[data-theme="light"] select option {
+  background-color: #f8fafc;
+  color: #0f172a;
+}

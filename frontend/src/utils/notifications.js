@@ -1,5 +1,7 @@
 const PREFS_KEY = 'forever_notifications_enabled';
 const SHOWN_KEY = 'forever_notifications_shown';
+const LAST_ACTIVITY_ID_KEY = 'forever_last_activity_id';
+const MY_NAME_KEY = 'forever_my_name';
 
 export function notificationsEnabled() {
   return localStorage.getItem(PREFS_KEY) === 'true';
@@ -12,14 +14,13 @@ export function setNotificationsEnabled(on) {
 function wasShown(tag) {
   const raw = localStorage.getItem(SHOWN_KEY);
   const map = raw ? JSON.parse(raw) : {};
-  const today = new Date().toISOString().slice(0, 10);
-  return map[tag] === today;
+  return map[tag] === true;
 }
 
 function markShown(tag) {
   const raw = localStorage.getItem(SHOWN_KEY);
   const map = raw ? JSON.parse(raw) : {};
-  map[tag] = new Date().toISOString().slice(0, 10);
+  map[tag] = true;
   localStorage.setItem(SHOWN_KEY, JSON.stringify(map));
 }
 
@@ -49,14 +50,54 @@ export function showLocalNotification({ title, body, tag, route = '/dashboard' }
   markShown(tag);
 }
 
-export async function checkAndNotify(apiBase = '') {
+export async function checkAndNotify() {
   if (!notificationsEnabled() || Notification.permission !== 'granted') return;
 
   try {
-    const res = await fetch(`${apiBase}/api/notifications/feed`);
-    if (!res.ok) return;
-    const items = await res.json();
+    const { api } = await import('../api/client');
+    const items = await api.getNotificationFeed();
     items.forEach((item) => showLocalNotification(item));
+  } catch {
+    /* offline */
+  }
+}
+
+/** Notify partner activity (pings, new memories) when app is open or in background tab. */
+export async function pollPartnerActivity() {
+  if (!notificationsEnabled() || Notification.permission !== 'granted') return;
+
+  try {
+    const { api } = await import('../api/client');
+    const items = await api.getActivity(8);
+    if (!items.length) return;
+
+    const lastSeen = Number(localStorage.getItem(LAST_ACTIVITY_ID_KEY) || 0);
+    const myName = localStorage.getItem(MY_NAME_KEY) || '';
+    let newestId = lastSeen;
+
+    for (const item of items) {
+      if (item.id <= lastSeen) break;
+      if (item.author === myName) continue;
+
+      const title =
+        item.kind === 'ping'
+          ? item.title
+          : `${item.author} — ${item.title}`;
+
+      showLocalNotification({
+        title: item.kind === 'ping' ? 'Thinking of you 💕' : 'Partner activity',
+        body: title,
+        tag: `activity-${item.id}`,
+        route: item.route || '/dashboard',
+      });
+
+      if (item.id > newestId) newestId = item.id;
+    }
+
+    const topId = items[0]?.id ?? newestId;
+    if (topId > lastSeen) {
+      localStorage.setItem(LAST_ACTIVITY_ID_KEY, String(topId));
+    }
   } catch {
     /* offline */
   }
@@ -69,7 +110,7 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export async function subscribeToPush(apiBase = '') {
+export async function subscribeToPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
 
   const perm = await requestNotificationPermission();
@@ -77,29 +118,35 @@ export async function subscribeToPush(apiBase = '') {
 
   const reg = await navigator.serviceWorker.ready;
 
+  const { api } = await import('../api/client');
   let publicKey = '';
   try {
-    const res = await fetch(`${apiBase}/api/push/vapid-public-key`);
-    const data = await res.json();
+    const data = await api.getVapidKey();
     publicKey = data.publicKey;
   } catch {
-    return perm;
+    return false;
   }
 
-  if (!publicKey) return perm;
+  if (!publicKey) {
+    setNotificationsEnabled(true);
+    return true;
+  }
 
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
-  });
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+  }
 
   const json = sub.toJSON();
-  await fetch(`${apiBase}/api/push/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
-  });
+  await api.subscribePush({ endpoint: json.endpoint, keys: json.keys });
 
   setNotificationsEnabled(true);
   return true;
+}
+
+export async function runNotificationPoll() {
+  await Promise.all([checkAndNotify(), pollPartnerActivity()]);
 }

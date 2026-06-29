@@ -27,7 +27,7 @@ export function Select({ label, children, className = '', ...props }) {
     <label className="block">
       {label && <span className="mb-2 block text-sm text-muted">{label}</span>}
       <select
-        className={`mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none ${className}`}
+        className={`form-select mt-2 w-full rounded-xl border border-white/10 bg-card px-4 py-3 text-white outline-none ${className}`}
         {...props}
       >
         {children}
