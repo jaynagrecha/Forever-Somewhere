@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -50,12 +50,16 @@ def get_recovery_settings(
 @router.post("/email/request")
 def request_email_verification(
     payload: PartnerSlotIn,
+    background_tasks: BackgroundTasks,
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     try:
-        masked = recovery_svc.request_verify_otp(db, couple, payload.partner_slot, payload.email)
+        otp, normalized, masked = recovery_svc.request_verify_otp(
+            db, couple, payload.partner_slot, payload.email
+        )
         db.commit()
+        background_tasks.add_task(recovery_svc.deliver_verify_otp_email, couple.id, normalized, otp)
         return {"message": f"Verification code sent to {masked}", "email_masked": masked}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

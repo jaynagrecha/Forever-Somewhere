@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.entities import CoupleSpace, RecoveryAuditLog, RecoveryOtp
 from app.services.couple_auth import hash_token, verify_password
-from app.services.email_send import SendResult, send_email
+from app.services.email_send import SendResult, email_configured, send_email
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,13 @@ def _verify_otp_row(db: Session, email: str, otp: str, purpose: str) -> Recovery
     return row
 
 
-def request_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, email: str) -> str:
+def request_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, email: str) -> tuple[str, str, str]:
+    if not email_configured():
+        raise RuntimeError(
+            "Email is not configured on the server. Add SMTP_HOST, SMTP_USER, and SMTP_PASSWORD "
+            "(Gmail App Password) on Render → forever-somewhere-api, then redeploy."
+        )
+
     normalized = normalize_email(email)
     if not _EMAIL_RE.match(normalized):
         raise ValueError("Invalid email address")
@@ -226,11 +232,24 @@ def request_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, emai
         purpose=OTP_PURPOSE_VERIFY,
         partner_slot=partner_slot,
     )
-    result = _send_otp_email(normalized, otp, verifying=True)
-    if not result.ok:
-        raise RuntimeError(result.error or "Could not send email — check server email configuration")
-    log_audit(db, couple.id, "verify_otp_sent", f"Verification code sent to {mask_email(normalized)}")
-    return mask_email(normalized)
+    return otp, normalized, mask_email(normalized)
+
+
+def deliver_verify_otp_email(couple_id: int, to: str, otp: str) -> None:
+    """Send verification OTP after the HTTP response (avoids Render/browser timeouts)."""
+    from app.core.database import SessionLocal
+
+    result = _send_otp_email(to, otp, verifying=True)
+    db = SessionLocal()
+    try:
+        if result.ok:
+            log_audit(db, couple_id, "verify_otp_sent", f"Verification code sent to {mask_email(to)}")
+        else:
+            log_audit(db, couple_id, "verify_otp_failed", result.error[:255])
+            logger.error("Verify OTP email failed for %s: %s", mask_email(to), result.error)
+        db.commit()
+    finally:
+        db.close()
 
 
 def confirm_verify_otp(db: Session, couple: CoupleSpace, partner_slot: int, email: str, otp: str) -> str:

@@ -53,6 +53,16 @@ export function isUnauthorizedError(err) {
   return err instanceof ApiError && err.status === 401;
 }
 
+export function formatApiError(err) {
+  if (err instanceof ApiError) {
+    if (err.status === 0) {
+      return 'Could not reach the server — wait a few seconds and try again (the API may be waking up).';
+    }
+    return err.message || 'Request failed';
+  }
+  return err?.message || 'Request failed';
+}
+
 async function request(path, options = {}) {
   const apiBase = getApiBase();
   const headers = { ...options.headers };

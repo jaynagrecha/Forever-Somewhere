@@ -85,7 +85,7 @@ def _send_via_smtp(*, to: str, subject: str, html: str, text: str) -> SendResult
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=12) as server:
             if settings.smtp_use_tls:
                 server.starttls()
             server.login(settings.smtp_user, settings.smtp_password)
@@ -121,7 +121,7 @@ def _send_via_resend(*, to: str, subject: str, html: str, text: str) -> SendResu
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=12) as resp:
             if 200 <= resp.status < 300:
                 return SendResult(ok=True)
             body = resp.read().decode("utf-8", errors="replace")

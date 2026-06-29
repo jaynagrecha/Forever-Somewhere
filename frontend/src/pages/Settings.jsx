@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth, useMyName } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { exportArchive } from '../utils/export';
-import { api } from '../api/client';
+import { api, formatApiError } from '../api/client';
 import {
   notificationsEnabled,
   setNotificationsEnabled,
@@ -73,7 +73,7 @@ export default function Settings() {
       toast('Verification code sent — check your inbox', 'success');
       setVerifyStep(2);
     } catch (err) {
-      toast(err.message || 'Could not send code', 'error');
+      toast(formatApiError(err), 'error');
     }
   }
 
