@@ -125,7 +125,7 @@ class DesireSlipIn(BaseModel):
     slip_type: str = Field(pattern="^(curious|into|someday|hard_no)$")
     body: str = Field(min_length=1, max_length=500)
     chip: str = ""
-    anonymous: bool = False
+    private_until_match: bool = True
 
 
 class VaultIn(BaseModel):
@@ -442,6 +442,16 @@ def draw_card(
 def _link_slip_match(row: DesireSlip, match: DesireSlip) -> None:
     row.matched_id = match.id
     match.matched_id = row.id
+    row.revealed = True
+    match.revealed = True
+
+
+def _body_visible_to_viewer(slip: DesireSlip, viewer: str) -> bool:
+    if slip.author == viewer:
+        return True
+    if not slip.anonymous:
+        return True
+    return bool(slip.matched_id and slip.revealed)
 
 
 def _try_match_slip(db: Session, couple_id: int, row: DesireSlip) -> None:
@@ -489,6 +499,10 @@ def _validate_existing_matches(db: Session, couple_id: int) -> None:
         if not pair_still_matches(row, other):
             row.matched_id = None
             other.matched_id = None
+            if row.anonymous:
+                row.revealed = False
+            if other.anonymous:
+                other.revealed = False
 
 
 def _repair_unmatched_slips(db: Session, couple_id: int) -> None:
@@ -540,22 +554,21 @@ def list_desire_slips(
         .order_by(DesireSlip.created_at.desc())
         .all()
     )
-    for r in rows:
-        if r.anonymous or not r.revealed:
-            r.anonymous = False
-            r.revealed = True
     by_id = {r.id: r for r in rows}
     out = []
     for r in rows:
         is_mine = r.author == viewer
+        show_body = _body_visible_to_viewer(r, viewer)
         score = _match_score(r, by_id)
         out.append(
             {
                 "id": r.id,
                 "slip_type": r.slip_type,
-                "body": r.body,
+                "body": r.body if show_body else "",
                 "chip": r.chip or "",
                 "author": r.author,
+                "private_until_match": r.anonymous,
+                "body_hidden": not show_body,
                 "matched_id": r.matched_id,
                 "match_score": score,
                 "is_mine": is_mine,
@@ -574,13 +587,15 @@ def add_desire_slip(
 ) -> dict:
     _require_after_dark(couple, db)
     assert_posts_as_self(author, author, couple)
+    hide = payload.private_until_match and payload.slip_type in ("curious", "into", "someday")
     row = DesireSlip(
         couple_id=couple.id,
         author=author,
         slip_type=payload.slip_type,
         body=payload.body.strip(),
         chip=(payload.chip or "").strip().lower(),
-        anonymous=False,
+        anonymous=hide,
+        revealed=not hide,
     )
     db.add(row)
     db.flush()

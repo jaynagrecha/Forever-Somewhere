@@ -36,7 +36,7 @@ export default function AfterDark() {
 
   const [jar, setJar] = useState([]);
   const [jarChips, setJarChips] = useState([]);
-  const [slipForm, setSlipForm] = useState({ slip_type: 'curious', body: '', chip: '' });
+  const [slipForm, setSlipForm] = useState({ slip_type: 'curious', body: '', chip: '', private_until_match: true });
 
   const [card, setCard] = useState(null);
   const [deckKind, setDeckKind] = useState('');
@@ -94,7 +94,7 @@ export default function AfterDark() {
     if (!slipForm.body.trim()) return;
     try {
       await api.addDesireSlip(slipForm, author);
-      setSlipForm({ slip_type: 'curious', body: '', chip: '' });
+      setSlipForm({ slip_type: 'curious', body: '', chip: '', private_until_match: true });
       loadJar();
       toast('Slip added', 'success');
     } catch {
@@ -192,7 +192,7 @@ export default function AfterDark() {
   return (
     <PageShell title="🌙 After Dark" subtitle="Private · consent-first · just the two of you.">
       <SectionHint>
-        Desire jar reads the meaning of what you write — same idea in different words can show as aligned. Every note shows who wrote it.
+        Desire jar reads meaning to find alignment. Your name always shows — optional privacy hides only your words until you and your partner match on the same idea.
       </SectionHint>
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -208,7 +208,18 @@ export default function AfterDark() {
           <Card>
             <h2 className="font-display text-xl">Drop a slip</h2>
             <form onSubmit={addSlip} className="mt-4 space-y-4">
-              <Select label="Type" value={slipForm.slip_type} onChange={(e) => setSlipForm({ ...slipForm, slip_type: e.target.value })}>
+              <Select
+                label="Type"
+                value={slipForm.slip_type}
+                onChange={(e) => {
+                  const slip_type = e.target.value;
+                  setSlipForm({
+                    ...slipForm,
+                    slip_type,
+                    private_until_match: slip_type === 'hard_no' ? false : slipForm.private_until_match,
+                  });
+                }}
+              >
                 <option value="curious">Curious</option>
                 <option value="into">Into</option>
                 <option value="someday">Someday</option>
@@ -231,6 +242,22 @@ export default function AfterDark() {
                 ))}
               </div>
               <TextArea label="Your words" value={slipForm.body} onChange={(e) => setSlipForm({ ...slipForm, body: e.target.value })} />
+              {slipForm.slip_type !== 'hard_no' && (
+                <label className="flex items-start gap-2 text-sm leading-snug">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={slipForm.private_until_match}
+                    onChange={(e) => setSlipForm({ ...slipForm, private_until_match: e.target.checked })}
+                  />
+                  <span>
+                    Hide my words until we match
+                    {slipForm.private_until_match
+                      ? ' — your partner sees your name and type, not what you wrote, until you align.'
+                      : ' (off — partner reads your note immediately).'}
+                  </span>
+                </label>
+              )}
               <Button type="submit" variant="primary">Add to jar</Button>
             </form>
           </Card>
@@ -252,11 +279,19 @@ export default function AfterDark() {
                 </p>
                 {s.matched_id && (
                   <p className="mt-2 text-xs font-medium text-accent-soft">
-                    Aligned with your partner&apos;s note
+                    Aligned — desires revealed to both of you
                     {s.match_score != null ? ` · ${Math.round(s.match_score * 100)}% similar` : ''}
                   </p>
                 )}
-                <p className="mt-2 whitespace-pre-wrap">{s.body}</p>
+                {s.body ? (
+                  <p className="mt-2 whitespace-pre-wrap">{s.body}</p>
+                ) : (
+                  <p className="mt-2 text-sm italic text-muted">
+                    {s.is_mine
+                      ? 'Your words stay private until you match with your partner.'
+                      : `${s.author} hid their desire until you align — matching reads meaning, not names.`}
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-muted">— {s.author}</p>
                 {s.is_mine && (
                   <Button size="sm" variant="danger" className="mt-3" onClick={() => api.deleteDesireSlip(s.id, author).then(loadJar)}>
