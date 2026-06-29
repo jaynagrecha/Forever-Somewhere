@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetime_utils import utc_iso
 from app.deps.couple import get_current_couple
 from app.models.entities import (
     ActivityEvent,
@@ -101,7 +102,7 @@ def list_activity(
             "title": r.title,
             "author": r.author,
             "route": r.route,
-            "created_at": r.created_at.isoformat() if r.created_at else "",
+            "created_at": utc_iso(r.created_at),
         }
         for r in rows
     ]

@@ -5,6 +5,7 @@ import Card from './ui/Card';
 import Button from './ui/Button';
 import { api } from '../api/client';
 import { useActivity } from '../context/ActivityContext';
+import { formatActivityWhen } from '../utils/datetime';
 
 const KIND_LABEL = {
   ping: '💕 Ping',
@@ -19,29 +20,6 @@ const KIND_LABEL = {
 const POLL_MS = 12_000;
 const FETCH_LIMIT = 30;
 const COLLAPSED_COUNT = 5;
-
-function formatActivityWhen(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-
-  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const today = new Date();
-  const dayKey = (x) => x.toDateString();
-
-  if (dayKey(d) === dayKey(today)) return `Today · ${time}`;
-
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (dayKey(d) === dayKey(yesterday)) return `Yesterday · ${time}`;
-
-  const date = d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-  });
-  return `${date} · ${time}`;
-}
 
 export default function ActivityFeed() {
   const navigate = useNavigate();
