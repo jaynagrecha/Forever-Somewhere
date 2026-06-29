@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Lock, Unlock, Heart, Plus, StickyNote, Mic, Video, Feather } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
@@ -40,6 +40,9 @@ export default function Forever() {
   const [noteForm, setNoteForm] = useState(emptyNote);
   const [opened, setOpened] = useState(null);
   const [moodPrompts, setMoodPrompts] = useState([]);
+  const [highlightCapsuleId, setHighlightCapsuleId] = useState(null);
+  const [highlightNoteId, setHighlightNoteId] = useState(null);
+  const deepLinkHandled = useRef('');
 
   useEffect(() => {
     if (!noteForm.mood) {
@@ -48,6 +51,42 @@ export default function Forever() {
     }
     api.getLetterPrompts(noteForm.mood).then((d) => setMoodPrompts(d.prompts || [])).catch(() => setMoodPrompts([]));
   }, [noteForm.mood]);
+
+  useEffect(() => {
+    const capsuleId = params.get('capsule');
+    if (capsuleId && capsules.length) {
+      const sig = `capsule:${capsuleId}`;
+      if (deepLinkHandled.current !== sig) {
+        const c = capsules.find((x) => String(x.id) === capsuleId);
+        if (c) {
+          deepLinkHandled.current = sig;
+          setTab('capsules');
+          setHighlightCapsuleId(c.id);
+          if (c.is_opened) setOpened(c);
+          else if (!c.is_locked) void openCapsule(c);
+          requestAnimationFrame(() => {
+            document.getElementById(`capsule-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        }
+      }
+    }
+
+    const noteId = params.get('note');
+    if (noteId && loveNotes.length) {
+      const sig = `note:${noteId}`;
+      if (deepLinkHandled.current !== sig) {
+        const n = loveNotes.find((x) => String(x.id) === noteId);
+        if (n) {
+          deepLinkHandled.current = sig;
+          setTab('notes');
+          setHighlightNoteId(n.id);
+          requestAnimationFrame(() => {
+            document.getElementById(`note-${n.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        }
+      }
+    }
+  }, [params, capsules, loveNotes]);
 
   async function saveCapsule() {
     if (!capsuleForm.title.trim() || !capsuleForm.unlock_date) {
@@ -181,6 +220,7 @@ export default function Forever() {
             locked={locked}
             ready={ready}
             opened={openedList}
+            highlightId={highlightCapsuleId}
             onOpen={openCapsule}
             onDelete={(id) => capsuleOps.remove(id)}
           />
@@ -217,7 +257,11 @@ export default function Forever() {
 
           <div className="grid gap-4 md:grid-cols-2">
             {loveNotes.map((n) => (
-              <Card key={n.id} className="border-accent/10">
+              <Card
+                key={n.id}
+                id={`note-${n.id}`}
+                className={`border-accent/10 ${highlightNoteId === n.id ? 'ring-2 ring-accent' : ''}`}
+              >
                 {n.mood && <Badge tone="accent">{n.mood}</Badge>}
                 {n.letter_template && (
                   <p className="mt-2 text-xs text-muted">{LETTER_TEMPLATES[n.letter_template] || n.letter_template}</p>

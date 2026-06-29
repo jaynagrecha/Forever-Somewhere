@@ -5,6 +5,22 @@ from app.models.entities import ActivityEvent
 from app.services.push_notify import notify_partner_devices
 
 
+def build_activity_route(kind: str, entity_id: int | None, fallback: str = "/dashboard") -> str:
+    """Deep link route for push / activity feed — opens the exact item in the PWA."""
+    if not entity_id:
+        return fallback
+    routes = {
+        "memory": f"/moments?memory={entity_id}",
+        "album": f"/moments?album={entity_id}",
+        "love_note": f"/forever?tab=notes&note={entity_id}",
+        "capsule": f"/forever?capsule={entity_id}",
+        "dream": f"/someday?dream={entity_id}",
+        "trip_pin": f"/somewhere?pin={entity_id}",
+        "ping": "/dashboard",
+    }
+    return routes.get(kind, fallback)
+
+
 def log_activity(
     db: Session,
     *,
@@ -16,13 +32,14 @@ def log_activity(
     route: str = "/dashboard",
     notify: bool = True,
 ) -> ActivityEvent:
+    deep_route = build_activity_route(kind, entity_id, route)
     row = ActivityEvent(
         couple_id=couple_id,
         kind=kind,
         title=title,
         author=author,
         entity_id=entity_id,
-        route=route,
+        route=deep_route,
     )
     db.add(row)
     db.flush()
@@ -35,7 +52,7 @@ def log_activity(
             title=title,
             author=author,
             activity_id=row.id,
-            route=route,
+            route=deep_route,
         )
 
     return row

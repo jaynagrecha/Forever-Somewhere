@@ -1,4 +1,4 @@
-const CACHE = 'forever-somewhere-v20';
+const CACHE = 'forever-somewhere-v21';
 let API_BASE = 'https://forever-somewhere-api.onrender.com';
 
 self.addEventListener('message', (event) => {
@@ -100,15 +100,16 @@ self.addEventListener('push', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const route = e.notification.data?.route || '/dashboard';
+  const targetUrl = new URL(route, self.location.origin).href;
+
   e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      for (const client of clients) {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
         if ('focus' in client) {
-          client.navigate(route);
-          return client.focus();
+          return client.focus().then(() => client.navigate(targetUrl));
         }
       }
-      return self.clients.openWindow(route);
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import { Plus, Trash2, ExternalLink } from 'lucide-react';
@@ -25,6 +25,7 @@ L.Icon.Default.mergeOptions({
 
 export default function Somewhere() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { mapLocations, pinOps } = useData();
   const { toast } = useToast();
 
@@ -33,6 +34,7 @@ export default function Somewhere() {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ date: '', occasion: '', notes: '' });
   const [viewMode, setViewMode] = useState('pins');
+  const [highlightPinId, setHighlightPinId] = useState(null);
 
   const routePoints = useMemo(
     () =>
@@ -54,6 +56,18 @@ export default function Somewhere() {
       return { lat, lng, count };
     });
   }, [mapLocations]);
+
+  useEffect(() => {
+    const pinId = params.get('pin');
+    if (!pinId || !mapLocations.length) return;
+    const pin = mapLocations.find((l) => String(l.pinId) === pinId);
+    if (!pin) return;
+    setHighlightPinId(Number(pinId));
+    setViewMode('pins');
+    requestAnimationFrame(() => {
+      document.getElementById(`map-pin-${pinId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [params, mapLocations]);
 
   async function savePin() {
     if (!selected?.lat) return toast('Select a location first', 'error');
@@ -130,7 +144,15 @@ export default function Somewhere() {
             ))}
           {(viewMode === 'pins' || viewMode === 'route') &&
             mapLocations.map((loc) => (
-            <Marker key={loc.key} position={[loc.lat, loc.lng]}>
+            <Marker
+              key={loc.key}
+              position={[loc.lat, loc.lng]}
+              eventHandlers={
+                highlightPinId && loc.pinId === highlightPinId
+                  ? { add: (e) => { e.target.openPopup(); } }
+                  : undefined
+              }
+            >
               <Popup>
                 <strong>{loc.title?.split(',')[0]}</strong>
                 <br />
@@ -170,7 +192,11 @@ export default function Somewhere() {
       <h2 className="mt-10 font-display text-2xl">Places on our map</h2>
       <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {mapLocations.map((loc) => (
-          <Card key={loc.key}>
+          <Card
+            key={loc.key}
+            id={loc.pinId ? `map-pin-${loc.pinId}` : undefined}
+            className={loc.pinId === highlightPinId ? 'ring-2 ring-accent' : ''}
+          >
             <h3 className="font-display text-xl">{loc.title?.split(',')[0]}</h3>
             <p className="mt-1 text-sm text-muted">
               {loc.memories.length} memories

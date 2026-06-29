@@ -49,6 +49,7 @@ export default function Moments() {
   const [linkedDreamId, setLinkedDreamId] = useState(params.get('dreamId'));
   const [surprise, setSurprise] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [detailMemory, setDetailMemory] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [locationQuery, setLocationQuery] = useState('');
   const [tagFilter, setTagFilter] = useState('');
@@ -73,6 +74,20 @@ export default function Moments() {
       setShowForm(true);
     }
   }, [params]);
+
+  useEffect(() => {
+    const albumId = params.get('album');
+    if (albumId) setAlbumFilter(albumId);
+
+    const memoryId = params.get('memory');
+    if (!memoryId || !memories.length) return;
+    const memory = memories.find((m) => String(m.id) === memoryId);
+    if (!memory) return;
+    setDetailMemory(memory);
+    requestAnimationFrame(() => {
+      document.getElementById(`memory-${memory.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [params, memories]);
 
   const filtered = memories.filter((m) => {
     if (tagFilter && !(m.tags || []).includes(tagFilter)) return false;
@@ -278,6 +293,7 @@ export default function Moments() {
           return (
             <div
               key={m.id}
+              id={`memory-${m.id}`}
               className={`memory-timeline-row relative mb-14 flex md:mb-20 ${
                 i % 2 === 0 ? 'md:justify-start' : 'md:justify-end'
               }`}
@@ -391,6 +407,40 @@ export default function Moments() {
 
       <Modal open={!!preview} onClose={() => setPreview(null)} title="Photo" wide>
         {preview && <img src={photoSrc(preview)} alt="" className="mx-auto max-h-[70vh] rounded-2xl" />}
+      </Modal>
+
+      <Modal open={!!detailMemory} onClose={() => setDetailMemory(null)} title="Memory" wide>
+        {detailMemory && (
+          <div className="space-y-4">
+            <h3 className="font-display text-3xl">{detailMemory.title}</h3>
+            <p className="text-muted">
+              {detailMemory.date || 'Undated'}
+              {detailMemory.location ? ` · ${detailMemory.location.split(',')[0]}` : ''}
+            </p>
+            {detailMemory.occasion && <p className="text-sm text-accent-soft">{detailMemory.occasion}</p>}
+            {detailMemory.notes && <p className="whitespace-pre-wrap leading-relaxed">{detailMemory.notes}</p>}
+            {(detailMemory.photos || []).length > 0 && (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {detailMemory.photos.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPreview(p)}
+                    className="overflow-hidden rounded-xl ring-1 ring-white/10 transition hover:ring-accent/40"
+                  >
+                    <img src={photoSrc(p)} alt="" className="aspect-square w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button variant="secondary" onClick={() => { openEdit(detailMemory); setDetailMemory(null); }}>
+                Edit memory
+              </Button>
+              <Button onClick={() => setDetailMemory(null)}>Close</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </PageShell>
   );

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Plus, Pencil, Camera, CheckSquare, ThumbsUp, ExternalLink, PiggyBank } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
@@ -34,12 +34,14 @@ function parseBudgetNum(budget) {
 
 export default function Someday() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { dreams, dreamOps, insights } = useData();
   const { toast } = useToast();
   const { partnerNames } = useAuth();
   const voters = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [highlightDreamId, setHighlightDreamId] = useState(null);
   const [form, setForm] = useState(empty);
   const [checkItem, setCheckItem] = useState('');
 
@@ -61,6 +63,17 @@ export default function Someday() {
     setForm(empty);
     setEditingId(null);
   }
+
+  useEffect(() => {
+    const dreamId = params.get('dream');
+    if (!dreamId || !dreams.length) return;
+    const dream = dreams.find((d) => String(d.id) === dreamId);
+    if (!dream) return;
+    setHighlightDreamId(dream.id);
+    requestAnimationFrame(() => {
+      document.getElementById(`dream-${dream.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [params, dreams]);
 
   async function save() {
     if (!form.title.trim()) return toast('Enter a dream title', 'error');
@@ -140,7 +153,11 @@ export default function Someday() {
           const progress = budgetNum ? Math.min(100, Math.round((saved / budgetNum) * 100)) : 0;
           const voteTotal = Object.values(dream.votes || {}).reduce((a, b) => a + b, 0);
           return (
-            <Card key={dream.id}>
+            <Card
+              key={dream.id}
+              id={`dream-${dream.id}`}
+              className={highlightDreamId === dream.id ? 'ring-2 ring-accent' : ''}
+            >
               <Badge tone={dream.status === 'Completed' ? 'success' : dream.status === 'Planned' ? 'accent' : 'default'}>
                 {dream.status}
               </Badge>

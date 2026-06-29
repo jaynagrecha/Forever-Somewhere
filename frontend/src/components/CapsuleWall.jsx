@@ -2,7 +2,7 @@ import { Lock, Unlock, Clock } from 'lucide-react';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
 
-export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete }) {
+export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete, highlightId = null }) {
   const all = [
     ...locked.map((c) => ({ ...c, wallState: 'locked' })),
     ...ready.map((c) => ({ ...c, wallState: 'ready' })),
@@ -24,9 +24,12 @@ export default function CapsuleWall({ locked, ready, opened, onOpen, onDelete })
         {all.map((c, i) => (
           <div
             key={c.id}
+            id={`capsule-${c.id}`}
             className={`capsule-jar relative flex flex-col items-center p-4 transition hover:scale-105 ${
               c.wallState === 'ready' ? 'capsule-jar-ready' : ''
-            } ${c.wallState === 'opened' ? 'capsule-jar-opened opacity-80' : ''}`}
+            } ${c.wallState === 'opened' ? 'capsule-jar-opened opacity-80' : ''} ${
+              highlightId === c.id ? 'rounded-2xl ring-2 ring-accent ring-offset-2 ring-offset-ink' : ''
+            }`}
             style={{ animationDelay: `${i * 80}ms` }}
           >
             <div
