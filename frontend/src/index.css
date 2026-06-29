@@ -135,6 +135,14 @@ html[data-theme="light"] [class*="bg-white/"] {
   min-height: 80px;
 }
 
+.memory-timeline-row:hover .polaroid-card {
+  transform: rotate(0deg) scale(1.02);
+}
+
+.timeline-node {
+  box-shadow: 0 0 12px rgba(255, 77, 109, 0.25);
+}
+
 .capsule-wall {
   perspective: 800px;
 }

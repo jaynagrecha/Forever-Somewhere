@@ -20,14 +20,12 @@ export default function PolaroidMemory({
   const isMilestone = memory.isMilestone || memory.is_milestone;
 
   return (
-    <article
-      className="relative mb-12 animate-fade-in md:mb-16"
-      style={{ transform: `rotate(${tilt}deg)` }}
-    >
+    <article className="relative animate-fade-in">
       <div
         className={`polaroid-card mx-auto max-w-md transition-transform hover:rotate-0 hover:scale-[1.02] ${
           isMilestone ? 'polaroid-gold' : ''
         }`}
+        style={{ transform: `rotate(${tilt}deg)` }}
       >
         {memory.photos?.length > 0 ? (
           <div className="polaroid-photo">
@@ -53,7 +51,7 @@ export default function PolaroidMemory({
           {isMilestone && (
             <Badge tone="gold">{memory.milestoneType || memory.milestone_type}</Badge>
           )}
-          <p className="handwritten-date mt-2">{memory.date || 'Undated'}</p>
+          <p className="handwritten-date mt-2 text-ink/80">{memory.date || 'Undated'}</p>
           <h2 className="mt-1 font-display text-2xl text-ink">{memory.title}</h2>
           {memory.location && (
             <p className="mt-1 text-sm text-ink/60">📍 {memory.location.split(',')[0]}</p>

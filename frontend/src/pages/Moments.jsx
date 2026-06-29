@@ -268,19 +268,50 @@ export default function Moments() {
         </Button>
       </div>
 
-      <div className="mx-auto max-w-lg">
-        {sorted.map((m) => (
-          <PolaroidMemory
-            key={m.id}
-            memory={m}
-            photoSrc={photoSrc}
-            onEdit={openEdit}
-            onShare={shareMemoryCard}
-            onDelete={(id) => memoryOps.remove(id)}
-            onDownload={downloadZip}
-            onPreview={setPreview}
-          />
-        ))}
+      <div className="memory-timeline relative py-2">
+        <div
+          className="pointer-events-none absolute bottom-0 left-4 top-0 w-0.5 bg-gradient-to-b from-accent/50 via-white/20 to-transparent md:left-1/2 md:-translate-x-1/2"
+          aria-hidden
+        />
+        {sorted.map((m, i) => {
+          const isMilestone = m.isMilestone || m.is_milestone;
+          return (
+            <div
+              key={m.id}
+              className={`memory-timeline-row relative mb-14 flex md:mb-20 ${
+                i % 2 === 0 ? 'md:justify-start' : 'md:justify-end'
+              }`}
+            >
+              <span
+                className={`timeline-node absolute left-2 top-10 z-10 flex h-6 w-6 items-center justify-center rounded-full text-xs md:left-1/2 md:-translate-x-1/2 md:h-7 md:w-7 ${
+                  isMilestone
+                    ? 'bg-gold text-ink shadow-lg shadow-gold/40'
+                    : 'border-2 border-white/30 bg-ink'
+                }`}
+              >
+                {isMilestone ? '★' : ''}
+              </span>
+              <div
+                className={`ml-10 w-full max-w-md md:ml-0 ${
+                  i % 2 === 0 ? 'md:mr-[52%] md:pr-4' : 'md:ml-[52%] md:pl-4'
+                }`}
+              >
+                <PolaroidMemory
+                  memory={m}
+                  photoSrc={photoSrc}
+                  onEdit={openEdit}
+                  onShare={shareMemoryCard}
+                  onDelete={(id) => memoryOps.remove(id)}
+                  onDownload={downloadZip}
+                  onPreview={setPreview}
+                />
+              </div>
+            </div>
+          );
+        })}
+        {!sorted.length && (
+          <p className="text-center text-muted">No memories yet — add your first moment.</p>
+        )}
       </div>
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={editingId ? 'Edit Memory' : 'Add Memory'} wide>
