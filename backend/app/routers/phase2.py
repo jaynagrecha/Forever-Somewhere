@@ -434,9 +434,6 @@ def draw_card(
 def _link_slip_match(row: DesireSlip, match: DesireSlip) -> None:
     row.matched_id = match.id
     match.matched_id = row.id
-    if row.anonymous and match.anonymous:
-        row.revealed = True
-        match.revealed = True
 
 
 def _try_match_slip(db: Session, couple_id: int, row: DesireSlip) -> None:
@@ -493,22 +490,21 @@ def list_desire_slips(
         .order_by(DesireSlip.created_at.desc())
         .all()
     )
+    for r in rows:
+        if r.anonymous or not r.revealed:
+            r.anonymous = False
+            r.revealed = True
     out = []
     for r in rows:
         is_mine = r.author == viewer
-        show_body = is_mine or r.revealed
-        if r.anonymous and not is_mine and not r.revealed:
-            show_body = False
         out.append(
             {
                 "id": r.id,
                 "slip_type": r.slip_type,
-                "body": r.body if show_body else "",
+                "body": r.body,
                 "chip": r.chip or "",
-                "anonymous": r.anonymous,
-                "author": r.author if (is_mine or r.revealed) else ("Anonymous" if r.anonymous else "Partner"),
+                "author": r.author,
                 "matched_id": r.matched_id,
-                "revealed": r.revealed,
                 "is_mine": is_mine,
                 "created_at": utc_iso(r.created_at),
             }
@@ -531,7 +527,7 @@ def add_desire_slip(
         slip_type=payload.slip_type,
         body=payload.body.strip(),
         chip=(payload.chip or "").strip().lower(),
-        anonymous=payload.anonymous,
+        anonymous=False,
     )
     db.add(row)
     db.flush()

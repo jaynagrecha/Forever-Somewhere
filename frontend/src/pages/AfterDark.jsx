@@ -36,7 +36,7 @@ export default function AfterDark() {
 
   const [jar, setJar] = useState([]);
   const [jarChips, setJarChips] = useState([]);
-  const [slipForm, setSlipForm] = useState({ slip_type: 'curious', body: '', chip: '', anonymous: false });
+  const [slipForm, setSlipForm] = useState({ slip_type: 'curious', body: '', chip: '' });
 
   const [card, setCard] = useState(null);
   const [deckKind, setDeckKind] = useState('');
@@ -94,7 +94,7 @@ export default function AfterDark() {
     if (!slipForm.body.trim()) return;
     try {
       await api.addDesireSlip(slipForm, author);
-      setSlipForm({ slip_type: 'curious', body: '', chip: '', anonymous: false });
+      setSlipForm({ slip_type: 'curious', body: '', chip: '' });
       loadJar();
       toast('Slip added', 'success');
     } catch {
@@ -192,7 +192,7 @@ export default function AfterDark() {
   return (
     <PageShell title="🌙 After Dark" subtitle="Private · consent-first · just the two of you.">
       <SectionHint>
-        Desire jar, wild deck, vault, and energy — nothing here appears on your main dashboard unless you choose to tease energy in Settings.
+        Desire jar, wild deck, vault, and energy — private to the two of you. Every jar note shows who wrote it.
       </SectionHint>
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -215,25 +215,22 @@ export default function AfterDark() {
                 <option value="hard_no">Hard no (boundary)</option>
               </Select>
               <p className="mb-2 text-sm text-muted">
-                Chips optional — pick the same one to match on a topic, or leave blank and match on Curious/Into alone.
+                Optional topic — if you both pick the same one (e.g. playful), your slips show as matched.
               </p>
+              <p className="mb-2 text-xs text-muted">Topics:</p>
               <div className="flex flex-wrap gap-2">
                 {jarChips.map((c) => (
                   <button
                     key={c}
                     type="button"
-                    className={`rounded-full px-3 py-1 text-xs ${slipForm.chip === c ? 'bg-accent text-white' : 'bg-white/10'}`}
-                    onClick={() => setSlipForm({ ...slipForm, chip: c })}
+                    className={`rounded-full px-3 py-1 text-xs capitalize ${slipForm.chip === c ? 'bg-accent text-white' : 'bg-white/10'}`}
+                    onClick={() => setSlipForm({ ...slipForm, chip: slipForm.chip === c ? '' : c })}
                   >
                     {c}
                   </button>
                 ))}
               </div>
               <TextArea label="Your words" value={slipForm.body} onChange={(e) => setSlipForm({ ...slipForm, body: e.target.value })} />
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={slipForm.anonymous} onChange={(e) => setSlipForm({ ...slipForm, anonymous: e.target.checked })} />
-                Anonymous to partner until revealed
-              </label>
               <Button type="submit" variant="primary">Add to jar</Button>
             </form>
           </Card>
@@ -243,23 +240,12 @@ export default function AfterDark() {
                 <p className="text-xs uppercase text-muted">
                   {s.slip_type}
                   {s.chip ? ` · ${s.chip}` : ''}
-                  {s.matched_id ? ' · matched' : ''}
-                  {s.revealed ? ' · revealed' : ''}
+                  {s.matched_id ? ' · you both picked this' : ''}
                 </p>
-                <p className="mt-2">
-                  {s.body
-                    || (s.matched_id && !s.revealed
-                      ? '(matched — tap Reveal match on your slip to unlock both)'
-                      : '(hidden — waiting for a partner match on the same Curious/Into or chip)')}
-                </p>
+                <p className="mt-2 whitespace-pre-wrap">{s.body}</p>
                 <p className="mt-2 text-xs text-muted">— {s.author}</p>
-                {s.is_mine && s.matched_id && !s.revealed && (
-                  <Button size="sm" className="mt-3" variant="primary" onClick={() => api.revealDesireSlip(s.id, author).then(loadJar)}>
-                    Reveal match
-                  </Button>
-                )}
                 {s.is_mine && (
-                  <Button size="sm" variant="danger" className="mt-2" onClick={() => api.deleteDesireSlip(s.id, author).then(loadJar)}>
+                  <Button size="sm" variant="danger" className="mt-3" onClick={() => api.deleteDesireSlip(s.id, author).then(loadJar)}>
                     Remove
                   </Button>
                 )}
