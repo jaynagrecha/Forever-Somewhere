@@ -1,12 +1,23 @@
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.entities import Dream, ImportantDate, LoveNote, Memory, TimeCapsule, TripPin
+from app.deps.couple import get_current_couple
+from app.models.entities import (
+    CoupleSpace,
+    DatePromptAnswer,
+    Dream,
+    ImportantDate,
+    LoveNote,
+    Memory,
+    TimeCapsule,
+    TripPin,
+)
+from app.services.activity import log_activity
 from app.schemas.common import (
     CalendarEvent,
     DreamOut,
@@ -15,9 +26,12 @@ from app.schemas.common import (
     InsightsOut,
     LoveNoteCreate,
     LoveNoteOut,
+    MemoryOut,
     NotificationItem,
     SearchResult,
+    TripPinOut,
     UpcomingItem,
+    parse_optional_date,
 )
 
 router = APIRouter(prefix="/api", tags=["features"])
@@ -33,31 +47,63 @@ def _days_until(target: date, recurring: bool = False) -> int:
     return (target - today).days
 
 
-def _bucket_progress(db: Session) -> float:
-    total = db.query(Dream).count()
+def _bucket_progress(db: Session, couple_id: int) -> float:
+    total = db.query(Dream).filter(Dream.couple_id == couple_id).count()
     if total == 0:
         return 0.0
-    done = db.query(Dream).filter(Dream.status == "Completed").count()
+    done = db.query(Dream).filter(Dream.couple_id == couple_id, Dream.status == "Completed").count()
     return round(done / total * 100, 1)
 
 
 @router.get("/love-notes", response_model=list[LoveNoteOut])
-def list_love_notes(db: Session = Depends(get_db)) -> list[LoveNoteOut]:
-    return db.query(LoveNote).order_by(LoveNote.created_at.desc()).all()
+def list_love_notes(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[LoveNoteOut]:
+    today = date.today()
+    rows = (
+        db.query(LoveNote)
+        .filter(LoveNote.couple_id == couple.id)
+        .order_by(LoveNote.created_at.desc())
+        .all()
+    )
+    visible = [r for r in rows if not r.reveal_date or r.reveal_date <= today]
+    return [LoveNoteOut.from_row(r) for r in visible]
 
 
 @router.post("/love-notes", response_model=LoveNoteOut, status_code=201)
-def create_love_note(payload: LoveNoteCreate, db: Session = Depends(get_db)) -> LoveNoteOut:
-    row = LoveNote(**payload.model_dump())
+def create_love_note(
+    payload: LoveNoteCreate,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> LoveNoteOut:
+    data = payload.model_dump()
+    reveal_raw = data.pop("reveal_date", "")
+    reveal_date = parse_optional_date(reveal_raw) if reveal_raw else None
+    row = LoveNote(couple_id=couple.id, **data, reveal_date=reveal_date)
     db.add(row)
+    db.flush()
+    log_activity(
+        db,
+        couple_id=couple.id,
+        kind="love_note",
+        title=payload.content[:60],
+        author=payload.author,
+        entity_id=row.id,
+        route="/forever",
+    )
     db.commit()
     db.refresh(row)
-    return row
+    return LoveNoteOut.from_row(row)
 
 
 @router.delete("/love-notes/{note_id}", status_code=204)
-def delete_love_note(note_id: int, db: Session = Depends(get_db)) -> None:
-    row = db.query(LoveNote).filter(LoveNote.id == note_id).first()
+def delete_love_note(
+    note_id: int,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = db.query(LoveNote).filter(LoveNote.couple_id == couple.id, LoveNote.id == note_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Note not found")
     db.delete(row)
@@ -65,8 +111,16 @@ def delete_love_note(note_id: int, db: Session = Depends(get_db)) -> None:
 
 
 @router.get("/important-dates", response_model=list[ImportantDateOut])
-def list_important_dates(db: Session = Depends(get_db)) -> list[ImportantDateOut]:
-    rows = db.query(ImportantDate).order_by(ImportantDate.event_date.asc()).all()
+def list_important_dates(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[ImportantDateOut]:
+    rows = (
+        db.query(ImportantDate)
+        .filter(ImportantDate.couple_id == couple.id)
+        .order_by(ImportantDate.event_date.asc())
+        .all()
+    )
     return [
         ImportantDateOut(
             id=r.id,
@@ -81,9 +135,11 @@ def list_important_dates(db: Session = Depends(get_db)) -> list[ImportantDateOut
 
 @router.post("/important-dates", response_model=ImportantDateOut, status_code=201)
 def create_important_date(
-    payload: ImportantDateCreate, db: Session = Depends(get_db)
+    payload: ImportantDateCreate,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
 ) -> ImportantDateOut:
-    row = ImportantDate(**payload.model_dump())
+    row = ImportantDate(couple_id=couple.id, **payload.model_dump())
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -97,8 +153,16 @@ def create_important_date(
 
 
 @router.delete("/important-dates/{item_id}", status_code=204)
-def delete_important_date(item_id: int, db: Session = Depends(get_db)) -> None:
-    row = db.query(ImportantDate).filter(ImportantDate.id == item_id).first()
+def delete_important_date(
+    item_id: int,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = (
+        db.query(ImportantDate)
+        .filter(ImportantDate.couple_id == couple.id, ImportantDate.id == item_id)
+        .first()
+    )
     if not row:
         raise HTTPException(status_code=404, detail="Date not found")
     db.delete(row)
@@ -106,9 +170,13 @@ def delete_important_date(item_id: int, db: Session = Depends(get_db)) -> None:
 
 
 @router.get("/insights", response_model=InsightsOut)
-def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
+def get_insights(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> InsightsOut:
     today = date.today()
-    memories = db.query(Memory).all()
+    cid = couple.id
+    memories = db.query(Memory).filter(Memory.couple_id == cid).all()
     on_this_day = [
         m
         for m in memories
@@ -117,7 +185,7 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
 
     upcoming: list[UpcomingItem] = []
 
-    for c in db.query(TimeCapsule).filter(TimeCapsule.is_opened.is_(False)).all():
+    for c in db.query(TimeCapsule).filter(TimeCapsule.couple_id == cid, TimeCapsule.is_opened.is_(False)).all():
         days = (c.unlock_date - today).days
         upcoming.append(
             UpcomingItem(
@@ -129,7 +197,7 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
             )
         )
 
-    for d in db.query(Dream).filter(Dream.status == "Planned").all():
+    for d in db.query(Dream).filter(Dream.couple_id == cid, Dream.status == "Planned").all():
         upcoming.append(
             UpcomingItem(
                 kind="trip",
@@ -140,7 +208,7 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
             )
         )
 
-    for row in db.query(ImportantDate).all():
+    for row in db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all():
         days = _days_until(row.event_date, row.recurring)
         upcoming.append(
             UpcomingItem(
@@ -168,7 +236,7 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
     upcoming.sort(key=lambda x: x.days_until)
 
     next_ann: ImportantDateOut | None = None
-    dates = db.query(ImportantDate).all()
+    dates = db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all()
     if dates:
         nearest = min(dates, key=lambda r: _days_until(r.event_date, r.recurring))
         next_ann = ImportantDateOut(
@@ -181,37 +249,42 @@ def get_insights(db: Session = Depends(get_db)) -> InsightsOut:
 
     return InsightsOut(
         on_this_day_count=len(on_this_day),
-        bucket_progress=_bucket_progress(db),
+        bucket_progress=_bucket_progress(db, cid),
         next_anniversary=next_ann,
         upcoming=upcoming[:12],
     )
 
 
 @router.get("/search", response_model=list[SearchResult])
-def search(q: str = Query(min_length=1), db: Session = Depends(get_db)) -> list[SearchResult]:
+def search(
+    q: str = Query(min_length=1),
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[SearchResult]:
     term = q.lower()
+    cid = couple.id
     results: list[SearchResult] = []
 
-    for m in db.query(Memory).all():
+    for m in db.query(Memory).filter(Memory.couple_id == cid).all():
         hay = f"{m.title} {m.location} {m.notes} {m.occasion} {m.mood}".lower()
         if term in hay or any(term in t.lower() for t in json.loads(m.tags_json or "[]")):
             results.append(
                 SearchResult(kind="memory", id=m.id, title=m.title, subtitle=m.location, route="/moments")
             )
 
-    for d in db.query(Dream).all():
+    for d in db.query(Dream).filter(Dream.couple_id == cid).all():
         if term in f"{d.title} {d.location} {d.notes}".lower():
             results.append(
                 SearchResult(kind="dream", id=d.id, title=d.title, subtitle=d.status, route="/someday")
             )
 
-    for c in db.query(TimeCapsule).all():
+    for c in db.query(TimeCapsule).filter(TimeCapsule.couple_id == cid).all():
         if term in f"{c.title} {c.content}".lower():
             results.append(
                 SearchResult(kind="capsule", id=c.id, title=c.title, subtitle="Forever", route="/forever")
             )
 
-    for n in db.query(LoveNote).all():
+    for n in db.query(LoveNote).filter(LoveNote.couple_id == cid).all():
         if term in n.content.lower():
             results.append(
                 SearchResult(kind="note", id=n.id, title=n.content[:40], subtitle="Love note", route="/forever")
@@ -220,11 +293,11 @@ def search(q: str = Query(min_length=1), db: Session = Depends(get_db)) -> list[
     return results[:30]
 
 
-def build_notification_feed(db: Session) -> list[NotificationItem]:
+def build_notification_feed(db: Session, couple_id: int) -> list[NotificationItem]:
     today = date.today()
     items: list[NotificationItem] = []
 
-    for m in db.query(Memory).all():
+    for m in db.query(Memory).filter(Memory.couple_id == couple_id).all():
         if m.memory_date and m.memory_date.month == today.month and m.memory_date.day == today.day:
             items.append(
                 NotificationItem(
@@ -235,7 +308,7 @@ def build_notification_feed(db: Session) -> list[NotificationItem]:
                 )
             )
 
-    for row in db.query(ImportantDate).all():
+    for row in db.query(ImportantDate).filter(ImportantDate.couple_id == couple_id).all():
         days = _days_until(row.event_date, row.recurring)
         if days == 0:
             items.append(
@@ -256,7 +329,9 @@ def build_notification_feed(db: Session) -> list[NotificationItem]:
                 )
             )
 
-    for c in db.query(TimeCapsule).filter(TimeCapsule.is_opened.is_(False)).all():
+    for c in db.query(TimeCapsule).filter(
+        TimeCapsule.couple_id == couple_id, TimeCapsule.is_opened.is_(False)
+    ).all():
         days = (c.unlock_date - today).days
         if days == 0:
             items.append(
@@ -281,15 +356,22 @@ def build_notification_feed(db: Session) -> list[NotificationItem]:
 
 
 @router.get("/notifications/feed", response_model=list[NotificationItem])
-def notification_feed(db: Session = Depends(get_db)) -> list[NotificationItem]:
-    return build_notification_feed(db)
+def notification_feed(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[NotificationItem]:
+    return build_notification_feed(db, couple.id)
 
 
 @router.get("/calendar", response_model=list[CalendarEvent])
-def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
+def calendar_events(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[CalendarEvent]:
+    cid = couple.id
     events: list[CalendarEvent] = []
 
-    for m in db.query(Memory).filter(Memory.memory_date.isnot(None)).all():
+    for m in db.query(Memory).filter(Memory.couple_id == cid, Memory.memory_date.isnot(None)).all():
         events.append(
             CalendarEvent(
                 id=f"memory-{m.id}",
@@ -301,7 +383,7 @@ def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
             )
         )
 
-    for c in db.query(TimeCapsule).all():
+    for c in db.query(TimeCapsule).filter(TimeCapsule.couple_id == cid).all():
         events.append(
             CalendarEvent(
                 id=f"capsule-{c.id}",
@@ -313,7 +395,7 @@ def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
             )
         )
 
-    for d in db.query(ImportantDate).all():
+    for d in db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all():
         events.append(
             CalendarEvent(
                 id=f"date-{d.id}",
@@ -325,7 +407,7 @@ def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
             )
         )
 
-    for p in db.query(TripPin).filter(TripPin.pin_date.isnot(None)).all():
+    for p in db.query(TripPin).filter(TripPin.couple_id == cid, TripPin.pin_date.isnot(None)).all():
         events.append(
             CalendarEvent(
                 id=f"pin-{p.id}",
@@ -337,7 +419,7 @@ def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
             )
         )
 
-    for dr in db.query(Dream).filter(Dream.status == "Planned").all():
+    for dr in db.query(Dream).filter(Dream.couple_id == cid, Dream.status == "Planned").all():
         if dr.target_year and len(dr.target_year) == 4:
             events.append(
                 CalendarEvent(
@@ -355,14 +437,26 @@ def calendar_events(db: Session = Depends(get_db)) -> list[CalendarEvent]:
 
 
 @router.get("/export")
-def export_all(db: Session = Depends(get_db)) -> JSONResponse:
-    from app.schemas.common import CapsuleOut, MemoryOut, TripPinOut
-
+def export_all(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    cid = couple.id
     data = {
         "exported_at": datetime.utcnow().isoformat(),
-        "memories": [MemoryOut.from_orm_row(m).model_dump() for m in db.query(Memory).all()],
-        "trip_pins": [TripPinOut.from_orm_row(p).model_dump() for p in db.query(TripPin).all()],
-        "dreams": [DreamOut.from_orm_row(d).model_dump() for d in db.query(Dream).all()],
+        "couple": couple.display_name,
+        "memories": [
+            MemoryOut.from_orm_row(m).model_dump()
+            for m in db.query(Memory).filter(Memory.couple_id == cid).all()
+        ],
+        "trip_pins": [
+            TripPinOut.from_orm_row(p).model_dump()
+            for p in db.query(TripPin).filter(TripPin.couple_id == cid).all()
+        ],
+        "dreams": [
+            DreamOut.from_orm_row(d).model_dump()
+            for d in db.query(Dream).filter(Dream.couple_id == cid).all()
+        ],
         "capsules": [
             {
                 "id": c.id,
@@ -372,15 +466,25 @@ def export_all(db: Session = Depends(get_db)) -> JSONResponse:
                 "author": c.author,
                 "is_opened": c.is_opened,
             }
-            for c in db.query(TimeCapsule).all()
+            for c in db.query(TimeCapsule).filter(TimeCapsule.couple_id == cid).all()
         ],
         "love_notes": [
             {"id": n.id, "content": n.content, "author": n.author, "mood": n.mood}
-            for n in db.query(LoveNote).all()
+            for n in db.query(LoveNote).filter(LoveNote.couple_id == cid).all()
         ],
         "important_dates": [
             {"id": d.id, "title": d.title, "event_date": d.event_date.isoformat(), "recurring": d.recurring}
-            for d in db.query(ImportantDate).all()
+            for d in db.query(ImportantDate).filter(ImportantDate.couple_id == cid).all()
+        ],
+        "prompt_answers": [
+            {
+                "id": a.id,
+                "prompt_id": a.prompt_id,
+                "question": a.question,
+                "answer": a.answer,
+                "author": a.author,
+            }
+            for a in db.query(DatePromptAnswer).filter(DatePromptAnswer.couple_id == cid).all()
         ],
     }
     return JSONResponse(

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.entities import DatePromptAnswer
+from app.deps.couple import get_current_couple
+from app.models.entities import CoupleSpace, DatePromptAnswer
 from app.schemas.common import PromptAnswerCreate, PromptAnswerOut
 
 router = APIRouter(prefix="/api/prompts", tags=["prompts"])
@@ -29,13 +30,25 @@ def list_prompts() -> list[dict]:
 
 
 @router.get("/answers", response_model=list[PromptAnswerOut])
-def list_answers(db: Session = Depends(get_db)) -> list[PromptAnswerOut]:
-    return db.query(DatePromptAnswer).order_by(DatePromptAnswer.created_at.desc()).all()
+def list_answers(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[PromptAnswerOut]:
+    return (
+        db.query(DatePromptAnswer)
+        .filter(DatePromptAnswer.couple_id == couple.id)
+        .order_by(DatePromptAnswer.created_at.desc())
+        .all()
+    )
 
 
 @router.post("/answers", response_model=PromptAnswerOut, status_code=201)
-def save_answer(payload: PromptAnswerCreate, db: Session = Depends(get_db)) -> PromptAnswerOut:
-    row = DatePromptAnswer(**payload.model_dump())
+def save_answer(
+    payload: PromptAnswerCreate,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> PromptAnswerOut:
+    row = DatePromptAnswer(couple_id=couple.id, **payload.model_dump())
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -43,8 +56,16 @@ def save_answer(payload: PromptAnswerCreate, db: Session = Depends(get_db)) -> P
 
 
 @router.delete("/answers/{answer_id}", status_code=204)
-def delete_answer(answer_id: int, db: Session = Depends(get_db)) -> None:
-    row = db.query(DatePromptAnswer).filter(DatePromptAnswer.id == answer_id).first()
+def delete_answer(
+    answer_id: int,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = (
+        db.query(DatePromptAnswer)
+        .filter(DatePromptAnswer.couple_id == couple.id, DatePromptAnswer.id == answer_id)
+        .first()
+    )
     if row:
         db.delete(row)
         db.commit()

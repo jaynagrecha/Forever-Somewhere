@@ -1,7 +1,13 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera, Map, Sparkles, Heart, MapPin, Star, Settings, Calendar, Film, Moon,
+  BookOpen, Palette, MessageCircleHeart, Sparkle,
 } from 'lucide-react';
+import ActivityFeed from '../components/ActivityFeed';
+import DailyQuestion from '../components/DailyQuestion';
+import RandomMemory from '../components/RandomMemory';
+import { useLocale } from '../context/LocaleContext';
 import PageShell from '../components/Layout/PageShell';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -12,6 +18,7 @@ import BucketProgress from '../components/BucketProgress';
 import QuickActions from '../components/QuickActions';
 import YearInReview from '../components/YearInReview';
 import { useData } from '../context/DataContext';
+import { api } from '../api/client';
 
 const sections = [
   { icon: Camera, title: 'Moments', desc: 'Our past — dated memories, photos, and milestones.', route: '/moments', accent: 'from-rose-500/20 to-transparent' },
@@ -23,8 +30,16 @@ const sections = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const { stats, loading, connecting, online, reconnect, insights } = useData();
+  const { t } = useLocale();
+  const [extra, setExtra] = useState(null);
 
-  const syncLabel = connecting ? '◌ Connecting…' : online ? '● Synced' : '○ Offline mode';
+  useEffect(() => {
+    if (online) {
+      api.getExtraInsights().then(setExtra).catch(() => setExtra(null));
+    }
+  }, [online, stats?.memories_count]);
+
+  const syncLabel = connecting ? '◌ Connecting…' : online ? `● ${t('synced')}` : `○ ${t('offline')}`;
 
   return (
     <PageShell title="Forever, Somewhere" subtitle="Your shared world — romantic memories and practical tools in one place." backTo="/">
@@ -45,6 +60,9 @@ export default function Dashboard() {
 
       <GlobalSearch />
       <QuickActions />
+      <DailyQuestion />
+      <ActivityFeed />
+      <RandomMemory />
       <OnThisDayBanner />
 
       {insights.next_anniversary && (
@@ -62,19 +80,26 @@ export default function Dashboard() {
       <UpcomingStrip />
       <BucketProgress />
 
-      <div className="mb-10 grid gap-4 md:grid-cols-3">
+      <div className="mb-10 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <FeatureLink icon={Calendar} title="Our calendar" desc="All dates in one view" route="/calendar" />
         <FeatureLink icon={Film} title="Slideshow" desc="Fullscreen memory photos" route="/slideshow" />
         <FeatureLink icon={Moon} title="Date night" desc="Questions for us" route="/date-night" />
+        <FeatureLink icon={BookOpen} title={t('ourStory')} desc="Milestone timeline" route="/story" />
+        <FeatureLink icon={MessageCircleHeart} title={t('quiz')} desc="Compare answers" route="/quiz" />
+        <FeatureLink icon={Sparkle} title={t('starMap')} desc="Our constellation" route="/star-map" />
+        <FeatureLink icon={Palette} title={t('moodBoard')} desc="Shared vibes" route="/mood-board" />
       </div>
 
       {stats && (
-        <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-5">
+        <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-6">
           <Stat icon={Camera} label="Memories" value={stats.memories_count} />
           <Stat icon={MapPin} label="On map" value={stats.places_on_map} />
           <Stat icon={Sparkles} label="Dreams" value={stats.dreams_count} />
           <Stat icon={Star} label="Milestones" value={stats.milestones_count} />
           <Stat icon={Heart} label="Love notes" value={stats.love_notes_count || 0} />
+          {extra && (
+            <Stat icon={Sparkle} label="Memory streak (wk)" value={extra.memory_streak_weeks} />
+          )}
         </div>
       )}
 

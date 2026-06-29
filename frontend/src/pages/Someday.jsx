@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Plus, Pencil, Camera, CheckSquare } from 'lucide-react';
+import { MapPin, Plus, Pencil, Camera, CheckSquare, ThumbsUp, ExternalLink, PiggyBank } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -8,6 +8,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { buildDreamMemoryParams } from '../utils/insights';
 
@@ -21,12 +22,22 @@ const empty = {
   status: 'Wishlist',
   budget: '',
   checklist: [],
+  saved_amount: 0,
+  wishlist_url: '',
+  votes: {},
 };
+
+function parseBudgetNum(budget) {
+  const n = parseFloat(String(budget || '').replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 
 export default function Someday() {
   const navigate = useNavigate();
   const { dreams, dreamOps, insights } = useData();
   const { toast } = useToast();
+  const { partnerNames } = useAuth();
+  const voters = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(empty);
@@ -39,6 +50,9 @@ export default function Someday() {
       target_year: d.target_year || '',
       budget: d.budget || '',
       checklist: d.checklist || [],
+      saved_amount: d.saved_amount || 0,
+      wishlist_url: d.wishlist_url || '',
+      votes: d.votes || {},
     });
     setShowForm(true);
   }
@@ -77,6 +91,35 @@ export default function Someday() {
     }));
   }
 
+  async function toggleCardCheck(dream, itemId) {
+    const checklist = (dream.checklist || []).map((c) =>
+      c.id === itemId ? { ...c, done: !c.done } : c
+    );
+    try {
+      await dreamOps.update(dream.id, { ...dream, checklist });
+    } catch {
+      toast('Could not update checklist', 'error');
+    }
+  }
+
+  async function voteDream(dream, voter) {
+    const votes = { ...(dream.votes || {}), [voter]: (dream.votes?.[voter] || 0) + 1 };
+    try {
+      await dreamOps.update(dream.id, { ...dream, votes });
+      toast(`${voter} voted!`, 'success');
+    } catch {
+      toast('Vote failed', 'error');
+    }
+  }
+
+  async function updateSaved(dream, amount) {
+    try {
+      await dreamOps.update(dream.id, { ...dream, saved_amount: amount });
+    } catch {
+      toast('Could not update savings', 'error');
+    }
+  }
+
   return (
     <PageShell title="✨ Someday" subtitle="The future — plan trips with budgets and checklists, then log them as Moments when done.">
       <SectionHint>
@@ -92,6 +135,10 @@ export default function Someday() {
         {dreams.map((dream) => {
           const checklist = dream.checklist || [];
           const doneCount = checklist.filter((c) => c.done).length;
+          const budgetNum = parseBudgetNum(dream.budget);
+          const saved = Number(dream.saved_amount) || 0;
+          const progress = budgetNum ? Math.min(100, Math.round((saved / budgetNum) * 100)) : 0;
+          const voteTotal = Object.values(dream.votes || {}).reduce((a, b) => a + b, 0);
           return (
             <Card key={dream.id}>
               <Badge tone={dream.status === 'Completed' ? 'success' : dream.status === 'Planned' ? 'accent' : 'default'}>
@@ -101,7 +148,42 @@ export default function Someday() {
               <p className="mt-2 flex items-center gap-1 text-muted"><MapPin size={14} /> {dream.location || 'Anywhere'}</p>
               <p className="text-sm text-muted">🏷 {dream.category} · 🔥 {dream.priority}</p>
               {dream.budget && <p className="text-sm text-muted">💰 Budget: {dream.budget}</p>}
+              {budgetNum > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center gap-1 text-xs text-muted">
+                    <PiggyBank size={12} /> Savings jar · {progress}%
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full bg-accent transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-24 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm"
+                      value={saved}
+                      onChange={(e) => updateSaved(dream, Number(e.target.value))}
+                    />
+                    <span className="text-xs text-muted">saved</span>
+                  </div>
+                </div>
+              )}
+              {dream.wishlist_url && (
+                <a
+                  href={dream.wishlist_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-sm text-accent-soft hover:underline"
+                >
+                  <ExternalLink size={14} /> Wishlist link
+                </a>
+              )}
               <p className="text-sm text-muted">📅 {dream.target_year || 'Someday'}</p>
+              {voteTotal > 0 && (
+                <p className="mt-2 text-xs text-muted">
+                  <ThumbsUp size={12} className="inline" /> {voteTotal} vote{voteTotal !== 1 ? 's' : ''}
+                </p>
+              )}
               {checklist.length > 0 && (
                 <p className="mt-2 text-xs text-muted">
                   <CheckSquare size={12} className="inline" /> {doneCount}/{checklist.length} packed/planned
@@ -111,11 +193,28 @@ export default function Someday() {
 
               {checklist.length > 0 && (
                 <ul className="mt-3 space-y-1 text-sm">
-                  {checklist.slice(0, 4).map((c) => (
-                    <li key={c.id} className={c.done ? 'text-muted line-through' : ''}>• {c.text}</li>
+                  {checklist.map((c) => (
+                    <li key={c.id}>
+                      <label className={`flex items-center gap-2 ${c.done ? 'text-muted line-through' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={!!c.done}
+                          onChange={() => toggleCardCheck(dream, c.id)}
+                        />
+                        {c.text}
+                      </label>
+                    </li>
                   ))}
                 </ul>
               )}
+
+              <div className="mt-3 flex gap-2">
+                {voters.map((name) => (
+                  <Button key={name} size="sm" variant="secondary" onClick={() => voteDream(dream, name)}>
+                    {name} 👍
+                  </Button>
+                ))}
+              </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {['Wishlist', 'Planned', 'Completed'].map((s) => (
@@ -145,6 +244,8 @@ export default function Someday() {
         <Input label="Dream title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         <Input label="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
         <Input label="Budget estimate" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} placeholder="e.g. ₹80,000 or $2,000" />
+        <Input label="Saved so far" type="number" min="0" value={form.saved_amount} onChange={(e) => setForm({ ...form, saved_amount: Number(e.target.value) })} />
+        <Input label="Wishlist URL" value={form.wishlist_url} onChange={(e) => setForm({ ...form, wishlist_url: e.target.value })} placeholder="Amazon / Pinterest link" />
         <Select label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
           {['Trip', 'Food', 'Experience', 'Home', 'Festival', 'Adventure', 'Other'].map((c) => <option key={c}>{c}</option>)}
         </Select>

@@ -9,7 +9,12 @@ import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
 import Slideshow from './pages/Slideshow';
 import DateNight from './pages/DateNight';
+import OurStory from './pages/OurStory';
+import Quiz from './pages/Quiz';
+import StarMap from './pages/StarMap';
+import MoodBoard from './pages/MoodBoard';
 import PageShell from './components/Layout/PageShell';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function NotFound() {
   return (
@@ -21,19 +26,27 @@ function NotFound() {
   );
 }
 
+function Guard({ children }) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/moments" element={<Moments />} />
-      <Route path="/somewhere" element={<Somewhere />} />
-      <Route path="/someday" element={<Someday />} />
-      <Route path="/forever" element={<Forever />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/calendar" element={<Calendar />} />
-      <Route path="/slideshow" element={<Slideshow />} />
-      <Route path="/date-night" element={<DateNight />} />
+      <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
+      <Route path="/moments" element={<Guard><Moments /></Guard>} />
+      <Route path="/somewhere" element={<Guard><Somewhere /></Guard>} />
+      <Route path="/someday" element={<Guard><Someday /></Guard>} />
+      <Route path="/forever" element={<Guard><Forever /></Guard>} />
+      <Route path="/settings" element={<Guard><Settings /></Guard>} />
+      <Route path="/calendar" element={<Guard><Calendar /></Guard>} />
+      <Route path="/slideshow" element={<Guard><Slideshow /></Guard>} />
+      <Route path="/date-night" element={<Guard><DateNight /></Guard>} />
+      <Route path="/story" element={<Guard><OurStory /></Guard>} />
+      <Route path="/quiz" element={<Guard><Quiz /></Guard>} />
+      <Route path="/star-map" element={<Guard><StarMap /></Guard>} />
+      <Route path="/mood-board" element={<Guard><MoodBoard /></Guard>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

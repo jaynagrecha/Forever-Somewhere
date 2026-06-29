@@ -6,7 +6,8 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { api, isApiAvailable } from '../api/client';
+import { api, isApiAvailable, getApiBase } from '../api/client';
+import { useAuth } from './AuthContext';
 import { computeInsights, searchAll } from '../utils/insights';
 import {
   buildImportPayload,
@@ -40,6 +41,7 @@ function normalizeMemory(m) {
 }
 
 export function DataProvider({ children }) {
+  const { isAuthed, token } = useAuth();
   const [online, setOnline] = useState(false);
   const [connecting, setConnecting] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -129,8 +131,14 @@ export function DataProvider({ children }) {
   }, [refreshAll]);
 
   useEffect(() => {
+    if (!isAuthed || !token) {
+      setLoading(false);
+      setConnecting(false);
+      setOnline(false);
+      return;
+    }
     connect();
-  }, [connect]);
+  }, [connect, isAuthed, token]);
 
   useEffect(() => {
     if (online || connecting) return undefined;

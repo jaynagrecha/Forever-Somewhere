@@ -5,6 +5,9 @@ import 'leaflet/dist/leaflet.css';
 import './index.css';
 import App from './App';
 import { DataProvider } from './context/DataContext';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { LocaleProvider } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
 import { checkAndNotify } from './utils/notifications';
 import { getApiBase } from './api/client';
@@ -21,10 +24,16 @@ function NotificationChecker() {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <ToastProvider>
-      <DataProvider>
-        <NotificationChecker />
-        <App />
-      </DataProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <LocaleProvider>
+            <DataProvider>
+              <NotificationChecker />
+              <App />
+            </DataProvider>
+          </LocaleProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </ToastProvider>
   </BrowserRouter>
 );

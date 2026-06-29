@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.entities import PushSubscription
-from app.schemas.common import NotificationItem, PushSubscribePayload
+from app.core.uploads import couple_upload_dir
+from app.deps.couple import get_current_couple
+from app.models.entities import CoupleSpace, PushSubscription
+from app.schemas.common import PushSubscribePayload
 
 router = APIRouter(prefix="/api/push", tags=["push"])
 
@@ -19,14 +21,26 @@ def vapid_public_key() -> dict[str, str]:
 
 
 @router.post("/subscribe", status_code=201)
-def subscribe(payload: PushSubscribePayload, db: Session = Depends(get_db)) -> dict[str, str]:
-    existing = db.query(PushSubscription).filter(PushSubscription.endpoint == payload.endpoint).first()
+def subscribe(
+    payload: PushSubscribePayload,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    existing = (
+        db.query(PushSubscription)
+        .filter(
+            PushSubscription.couple_id == couple.id,
+            PushSubscription.endpoint == payload.endpoint,
+        )
+        .first()
+    )
     if existing:
         existing.p256dh = payload.keys.get("p256dh", "")
         existing.auth = payload.keys.get("auth", "")
     else:
         db.add(
             PushSubscription(
+                couple_id=couple.id,
                 endpoint=payload.endpoint,
                 p256dh=payload.keys.get("p256dh", ""),
                 auth=payload.keys.get("auth", ""),
@@ -37,15 +51,29 @@ def subscribe(payload: PushSubscribePayload, db: Session = Depends(get_db)) -> d
 
 
 @router.post("/unsubscribe", status_code=204)
-def unsubscribe(payload: PushSubscribePayload, db: Session = Depends(get_db)) -> None:
-    row = db.query(PushSubscription).filter(PushSubscription.endpoint == payload.endpoint).first()
+def unsubscribe(
+    payload: PushSubscribePayload,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = (
+        db.query(PushSubscription)
+        .filter(
+            PushSubscription.couple_id == couple.id,
+            PushSubscription.endpoint == payload.endpoint,
+        )
+        .first()
+    )
     if row:
         db.delete(row)
         db.commit()
 
 
 @router.post("/media", response_model=dict)
-async def upload_capsule_media(file: UploadFile = File(...)) -> dict:
+async def upload_capsule_media(
+    file: UploadFile = File(...),
+    couple: CoupleSpace = Depends(get_current_couple),
+) -> dict:
     if not file.content_type:
         raise HTTPException(status_code=400, detail="Unknown file type")
     allowed = file.content_type.startswith("audio/") or file.content_type.startswith("video/")
@@ -54,11 +82,11 @@ async def upload_capsule_media(file: UploadFile = File(...)) -> dict:
 
     ext = Path(file.filename or "media.bin").suffix or ".webm"
     name = f"{uuid.uuid4().hex}{ext}"
-    dest = settings.upload_dir / name
+    dest = couple_upload_dir(couple.id) / name
     dest.write_bytes(await file.read())
 
     media_type = "audio" if file.content_type.startswith("audio/") else "video"
-    return {"url": f"/uploads/{name}", "media_type": media_type}
+    return {"url": f"/uploads/{couple.id}/{name}", "media_type": media_type}
 
 
 def _send_web_push(sub: PushSubscription, payload: dict) -> bool:
@@ -82,12 +110,14 @@ def _send_web_push(sub: PushSubscription, payload: dict) -> bool:
 
 
 @router.post("/broadcast")
-def broadcast_notifications(db: Session = Depends(get_db)) -> dict[str, int]:
-    """Call daily (cron) or manually to push upcoming reminders to all subscribers."""
+def broadcast_notifications(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
     from app.routers.features import build_notification_feed
 
-    items = build_notification_feed(db)
-    subs = db.query(PushSubscription).all()
+    items = build_notification_feed(db, couple.id)
+    subs = db.query(PushSubscription).filter(PushSubscription.couple_id == couple.id).all()
     sent = 0
     for item in items[:5]:
         payload = {

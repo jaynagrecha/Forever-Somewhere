@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import { Plus, Trash2, ExternalLink } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
@@ -32,6 +32,28 @@ export default function Somewhere() {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ date: '', occasion: '', notes: '' });
+  const [viewMode, setViewMode] = useState('pins');
+
+  const routePoints = useMemo(
+    () =>
+      [...mapLocations]
+        .filter((l) => l.lat && l.lng)
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+        .map((l) => [l.lat, l.lng]),
+    [mapLocations]
+  );
+
+  const heatCounts = useMemo(() => {
+    const grid = {};
+    mapLocations.forEach((l) => {
+      const key = `${l.lat?.toFixed(1)},${l.lng?.toFixed(1)}`;
+      grid[key] = (grid[key] || 0) + (l.memories?.length || 1);
+    });
+    return Object.entries(grid).map(([key, count]) => {
+      const [lat, lng] = key.split(',').map(Number);
+      return { lat, lng, count };
+    });
+  }, [mapLocations]);
 
   async function savePin() {
     if (!selected?.lat) return toast('Select a location first', 'error');
@@ -75,6 +97,18 @@ export default function Somewhere() {
         photos, use Moments instead.
       </SectionHint>
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button size="sm" variant={viewMode === 'pins' ? 'primary' : 'secondary'} onClick={() => setViewMode('pins')}>
+          Pins
+        </Button>
+        <Button size="sm" variant={viewMode === 'route' ? 'primary' : 'secondary'} onClick={() => setViewMode('route')}>
+          Route
+        </Button>
+        <Button size="sm" variant={viewMode === 'heat' ? 'primary' : 'secondary'} onClick={() => setViewMode('heat')}>
+          Heat map
+        </Button>
+      </div>
+
       <Button variant="primary" className="mb-6" onClick={() => setShowForm(true)}>
         <Plus size={18} /> Add Trip Pin
       </Button>
@@ -82,7 +116,20 @@ export default function Somewhere() {
       <div className="overflow-hidden rounded-3xl shadow-2xl shadow-black/50">
         <MapContainer center={[22.59, 78.96]} zoom={4} className="h-[55vh] min-h-[320px] w-full md:h-[70vh]">
           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-          {mapLocations.map((loc) => (
+          {viewMode === 'route' && routePoints.length > 1 && (
+            <Polyline positions={routePoints} pathOptions={{ color: '#ff4d6d', weight: 3, opacity: 0.7 }} />
+          )}
+          {viewMode === 'heat' &&
+            heatCounts.map((h) => (
+              <CircleMarker
+                key={`${h.lat}-${h.lng}`}
+                center={[h.lat, h.lng]}
+                radius={8 + h.count * 4}
+                pathOptions={{ color: '#ff4d6d', fillColor: '#ff4d6d', fillOpacity: 0.35 }}
+              />
+            ))}
+          {(viewMode === 'pins' || viewMode === 'route') &&
+            mapLocations.map((loc) => (
             <Marker key={loc.key} position={[loc.lat, loc.lng]}>
               <Popup>
                 <strong>{loc.title?.split(',')[0]}</strong>

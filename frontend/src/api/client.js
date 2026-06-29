@@ -26,6 +26,14 @@ export function getApiBase() {
   return resolveApiBase();
 }
 
+let coupleTokenGetter = () => (typeof window !== 'undefined' ? localStorage.getItem('forever_couple_token') : null);
+
+export function setCoupleTokenGetter(fn) {
+  coupleTokenGetter = fn;
+}
+
+const PUBLIC_PATHS = ['/api/health', '/api/couples/create', '/api/couples/join'];
+
 async function request(path, options = {}) {
   const apiBase = getApiBase();
   const headers = { ...options.headers };
@@ -34,18 +42,31 @@ async function request(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
+  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  const token = coupleTokenGetter();
+  if (token && !isPublic) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const url = apiBase ? `${apiBase}${path}` : path;
   const res = await fetch(url, { ...options, headers, cache: 'no-store', mode: 'cors' });
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Request failed');
+    const message = typeof err.detail === 'string' ? err.detail : err.detail?.msg || 'Request failed';
+    throw new Error(message);
   }
   return res.json();
 }
 
 export const api = {
   health: () => request('/api/health'),
+  createCoupleSpace: (data) =>
+    request('/api/couples/create', { method: 'POST', body: JSON.stringify(data) }),
+  joinCoupleSpace: (data) =>
+    request('/api/couples/join', { method: 'POST', body: JSON.stringify(data) }),
+  getCoupleMe: () => request('/api/couples/me'),
+  refreshCoupleToken: () => request('/api/couples/refresh-token', { method: 'POST' }),
   getStats: () => request('/api/stats'),
   getOnThisDay: () => request('/api/memories/on-this-day'),
   getInsights: () => request('/api/insights'),
@@ -62,7 +83,9 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     const url = `${getApiBase()}/api/memories/upload`;
-    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors' });
+    const token = coupleTokenGetter();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors', headers });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -85,7 +108,9 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     const url = `${getApiBase()}/api/push/media`;
-    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors' });
+    const token = coupleTokenGetter();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(url, { method: 'POST', body: form, mode: 'cors', headers });
     if (!res.ok) throw new Error('Upload failed');
     return res.json();
   },
@@ -109,6 +134,35 @@ export const api = {
   subscribePush: (data) => request('/api/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
 
   importLocal: (data) => request('/api/import/local', { method: 'POST', body: JSON.stringify(data) }),
+
+  getActivity: (limit = 20) => request(`/api/activity?limit=${limit}`),
+  getAlbums: () => request('/api/albums'),
+  createAlbum: (data) => request('/api/albums', { method: 'POST', body: JSON.stringify(data) }),
+  deleteAlbum: (id) => request(`/api/albums/${id}`, { method: 'DELETE' }),
+  getDailyQuestion: () => request('/api/daily-question'),
+  saveDailyAnswer: (data) =>
+    request('/api/daily-question/answer', { method: 'POST', body: JSON.stringify(data) }),
+  getQuiz: () => request('/api/quiz'),
+  getQuizResults: () => request('/api/quiz/results'),
+  submitQuiz: (data) => request('/api/quiz/submit', { method: 'POST', body: JSON.stringify(data) }),
+  getMoodBoard: () => request('/api/mood-board'),
+  saveMoodBoard: (items) =>
+    request('/api/mood-board', { method: 'PUT', body: JSON.stringify(items) }),
+  getStory: () => request('/api/story'),
+  getExtraInsights: () => request('/api/insights/extra'),
+  getRandomMemory: () => request('/api/memories/random'),
+  restoreBackup: async (file) => {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    return request('/api/import/local', {
+      method: 'POST',
+      body: JSON.stringify({
+        memories: data.memories || [],
+        places: data.trip_pins || data.places || [],
+        dreams: data.dreams || [],
+      }),
+    });
+  },
 };
 
 function sleep(ms) {

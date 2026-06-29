@@ -10,6 +10,7 @@ import { Input, TextArea, Select } from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
+import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
 import { api } from '../api/client';
 import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
@@ -29,11 +30,18 @@ const emptyForm = {
   milestone_type: '💍 Engagement',
   playlist_url: '',
   tags: [],
+  album_id: null,
+  voice_url: '',
+  before_photo: null,
+  after_photo: null,
+  added_by: '',
 };
 
 export default function Moments() {
   const { memories, memoryOps, dreamOps, online } = useData();
   const { toast } = useToast();
+  const authorOptions = useAuthorOptions();
+  const defaultAuthor = usePartnerPicker(0);
   const [params] = useSearchParams();
 
   const [showForm, setShowForm] = useState(params.get('new') === '1');
@@ -44,6 +52,14 @@ export default function Moments() {
   const [form, setForm] = useState(emptyForm);
   const [locationQuery, setLocationQuery] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [albums, setAlbums] = useState([]);
+  const [albumFilter, setAlbumFilter] = useState('');
+  const [showAlbumForm, setShowAlbumForm] = useState(false);
+  const [albumTitle, setAlbumTitle] = useState('');
+
+  useEffect(() => {
+    api.getAlbums().then(setAlbums).catch(() => setAlbums([]));
+  }, [memories.length]);
 
   useEffect(() => {
     if (params.get('new') === '1' && params.get('title')) {
@@ -59,8 +75,9 @@ export default function Moments() {
   }, [params]);
 
   const filtered = memories.filter((m) => {
-    if (!tagFilter) return true;
-    return (m.tags || []).includes(tagFilter);
+    if (tagFilter && !(m.tags || []).includes(tagFilter)) return false;
+    if (albumFilter && String(m.album_id) !== albumFilter) return false;
+    return true;
   });
 
   const sorted = [...filtered].sort(
@@ -68,7 +85,7 @@ export default function Moments() {
   );
 
   function resetForm() {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, added_by: defaultAuthor });
     setEditingId(null);
     setLinkedDreamId(null);
     setLocationQuery('');
@@ -164,6 +181,45 @@ export default function Moments() {
     a.click();
   }
 
+  async function createAlbum() {
+    if (!albumTitle.trim()) return toast('Album title required', 'error');
+    try {
+      const a = await api.createAlbum({ title: albumTitle });
+      setAlbums((prev) => [a, ...prev]);
+      setAlbumTitle('');
+      setShowAlbumForm(false);
+      toast('Trip album created', 'success');
+    } catch {
+      toast('Could not create album', 'error');
+    }
+  }
+
+  async function uploadSidePhoto(e, side) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      if (online) {
+        const uploaded = await api.uploadPhoto(compressed);
+        setForm((f) => ({
+          ...f,
+          [side]: { id: uploaded.id, name: uploaded.name, url: uploaded.url },
+        }));
+      }
+    } catch {
+      toast('Photo upload failed', 'error');
+    }
+  }
+
+  function shareMemoryCard(memory) {
+    const text = `${memory.title}\n${memory.date || ''} · ${memory.location || ''}\n\n— Forever, Somewhere`;
+    if (navigator.share) {
+      navigator.share({ title: memory.title, text }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(text);
+      toast('Share text copied', 'success');
+    }
+  }
   function photoSrc(p) {
     return resolveMediaUrl(p.url) || p.data;
   }
@@ -187,6 +243,17 @@ export default function Moments() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <select
+          value={albumFilter}
+          onChange={(e) => setAlbumFilter(e.target.value)}
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm"
+        >
+          <option value="">All albums</option>
+          {albums.map((a) => (
+            <option key={a.id} value={String(a.id)}>{a.title}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="secondary" onClick={() => setShowAlbumForm(true)}>New trip album</Button>
       </div>
 
       <div className="mb-8 flex flex-wrap gap-3">
@@ -226,8 +293,15 @@ export default function Moments() {
                   ))}
                 </div>
               )}
+              {(m.before_photo || m.after_photo) && (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {m.before_photo && <img src={photoSrc(m.before_photo)} alt="Before" className="rounded-xl object-cover" />}
+                  {m.after_photo && <img src={photoSrc(m.after_photo)} alt="After" className="rounded-xl object-cover" />}
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => openEdit(m)}>Edit</Button>
+                <Button size="sm" variant="secondary" onClick={() => shareMemoryCard(m)}>Share</Button>
                 <Button size="sm" variant="danger" onClick={() => memoryOps.remove(m.id)}>Delete</Button>
                 {m.photos?.length > 0 && (
                   <Button size="sm" onClick={() => downloadZip(m)}><Download size={16} /> ZIP</Button>
@@ -253,6 +327,17 @@ export default function Moments() {
             ))}
           </div>
         </div>
+        <Select label="Trip album" value={form.album_id || ''} onChange={(e) => setForm({ ...form, album_id: e.target.value ? Number(e.target.value) : null })}>
+          <option value="">None</option>
+          {albums.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+        </Select>
+        <Select label="Added by" value={form.added_by || defaultAuthor} onChange={(e) => setForm({ ...form, added_by: e.target.value })}>
+          {authorOptions.filter((a) => a !== 'Us').map((a) => <option key={a}>{a}</option>)}
+        </Select>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="text-sm text-muted">Before photo<input type="file" accept="image/*" className="mt-2 block w-full" onChange={(e) => uploadSidePhoto(e, 'before_photo')} /></label>
+          <label className="text-sm text-muted">After photo<input type="file" accept="image/*" className="mt-2 block w-full" onChange={(e) => uploadSidePhoto(e, 'after_photo')} /></label>
+        </div>
         <Input label="Occasion" value={form.occasion} onChange={(e) => setForm({ ...form, occasion: e.target.value })} />
         <Input label="Mood" value={form.mood} onChange={(e) => setForm({ ...form, mood: e.target.value })} />
         <label className="mt-4 flex items-center gap-2 text-sm">
@@ -277,6 +362,11 @@ export default function Moments() {
           <Button variant="primary" onClick={save}>Save</Button>
           <Button onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
         </div>
+      </Modal>
+
+      <Modal open={showAlbumForm} onClose={() => setShowAlbumForm(false)} title="New trip album">
+        <Input label="Album title" value={albumTitle} onChange={(e) => setAlbumTitle(e.target.value)} placeholder="Rajkot trip 2025" />
+        <Button className="mt-4" variant="primary" onClick={createAlbum}>Create album</Button>
       </Modal>
 
       <Modal open={!!surprise} onClose={() => setSurprise(null)} title="🎞 Surprise Memory">

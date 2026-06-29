@@ -7,11 +7,13 @@ import Modal from '../components/ui/Modal';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
+import { useAuthorOptions } from '../context/AuthContext';
 import { DATE_NIGHT_PROMPTS, randomPrompt } from '../utils/prompts';
 
 export default function DateNight() {
   const { promptAnswers, promptOps } = useData();
   const { toast } = useToast();
+  const authorOptions = useAuthorOptions();
   const [current, setCurrent] = useState(randomPrompt());
   const [showAnswer, setShowAnswer] = useState(false);
   const [answer, setAnswer] = useState('');
@@ -87,7 +89,7 @@ export default function DateNight() {
       <Modal open={showAnswer} onClose={() => setShowAnswer(false)} title="Your answer">
         <p className="mb-4 text-muted">{current.text}</p>
         <Select label="From" value={author} onChange={(e) => setAuthor(e.target.value)}>
-          <option>Us</option><option>Jay</option><option>Ikshika</option>
+          {authorOptions.map((a) => <option key={a}>{a}</option>)}
         </Select>
         <TextArea label="Answer" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Take your time…" />
         <div className="mt-6 flex gap-3">

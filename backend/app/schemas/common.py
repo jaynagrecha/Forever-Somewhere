@@ -26,6 +26,11 @@ class MemoryBase(BaseModel):
     milestone_type: str = ""
     playlist_url: str = ""
     tags: list[str] = Field(default_factory=list)
+    album_id: int | None = None
+    voice_url: str = ""
+    before_photo: dict[str, Any] | None = None
+    after_photo: dict[str, Any] | None = None
+    added_by: str = "Us"
 
 
 class MemoryCreate(MemoryBase):
@@ -46,6 +51,10 @@ class MemoryUpdate(BaseModel):
     milestone_type: str | None = None
     playlist_url: str | None = None
     tags: list[str] | None = None
+    album_id: int | None = None
+    voice_url: str | None = None
+    before_photo: dict[str, Any] | None = None
+    after_photo: dict[str, Any] | None = None
 
 
 class MemoryOut(MemoryBase):
@@ -73,6 +82,10 @@ class MemoryOut(MemoryBase):
             milestone_type=row.milestone_type,
             playlist_url=getattr(row, "playlist_url", "") or "",
             tags=tags,
+            album_id=getattr(row, "album_id", None),
+            voice_url=getattr(row, "voice_url", "") or "",
+            before_photo=json.loads(getattr(row, "before_photo_json", None) or "null") or None,
+            after_photo=json.loads(getattr(row, "after_photo_json", None) or "null") or None,
             created_at=row.created_at,
         )
 
@@ -122,6 +135,9 @@ class DreamBase(BaseModel):
     status: str = "Wishlist"
     budget: str = ""
     checklist: list[dict[str, Any]] = Field(default_factory=list)
+    saved_amount: float = 0.0
+    wishlist_url: str = ""
+    votes: dict[str, int] = Field(default_factory=dict)
 
 
 class DreamCreate(DreamBase):
@@ -138,6 +154,9 @@ class DreamUpdate(BaseModel):
     status: str | None = None
     budget: str | None = None
     checklist: list[dict[str, Any]] | None = None
+    saved_amount: float | None = None
+    wishlist_url: str | None = None
+    votes: dict[str, int] | None = None
 
 
 class DreamOut(DreamBase):
@@ -149,6 +168,7 @@ class DreamOut(DreamBase):
     @classmethod
     def from_orm_row(cls, row: Any) -> "DreamOut":
         checklist = json.loads(getattr(row, "checklist_json", None) or "[]")
+        votes = json.loads(getattr(row, "votes_json", None) or "{}")
         return cls(
             id=row.id,
             title=row.title,
@@ -160,6 +180,9 @@ class DreamOut(DreamBase):
             status=row.status,
             budget=getattr(row, "budget", "") or "",
             checklist=checklist,
+            saved_amount=float(getattr(row, "saved_amount", 0) or 0),
+            wishlist_url=getattr(row, "wishlist_url", "") or "",
+            votes=votes,
             created_at=row.created_at,
         )
 
@@ -205,6 +228,9 @@ class LoveNoteCreate(BaseModel):
     content: str
     author: str = "Us"
     mood: str = ""
+    voice_url: str = ""
+    letter_template: str = ""
+    reveal_date: str = ""
 
 
 class LoveNoteOut(LoveNoteCreate):
@@ -212,6 +238,19 @@ class LoveNoteOut(LoveNoteCreate):
 
     id: int
     created_at: datetime | None = None
+
+    @classmethod
+    def from_row(cls, row: Any) -> "LoveNoteOut":
+        return cls(
+            id=row.id,
+            content=row.content,
+            author=row.author,
+            mood=row.mood or "",
+            voice_url=getattr(row, "voice_url", "") or "",
+            letter_template=getattr(row, "letter_template", "") or "",
+            reveal_date=row.reveal_date.isoformat() if getattr(row, "reveal_date", None) else "",
+            created_at=row.created_at,
+        )
 
 
 class ImportantDateCreate(BaseModel):

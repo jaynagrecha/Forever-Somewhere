@@ -9,16 +9,26 @@ import Badge from '../components/ui/Badge';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
+import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
 import { MOOD_OPTIONS } from '../utils/constants';
 import { api } from '../api/client';
 import { resolveMediaUrl } from '../utils/media';
 
 const emptyCapsule = { title: '', content: '', unlock_date: '', author: 'Us', media_url: '', media_type: '' };
-const emptyNote = { content: '', author: 'Us', mood: '' };
+const emptyNote = { content: '', author: 'Us', mood: '', voice_url: '', letter_template: '', reveal_date: '' };
+
+const LETTER_TEMPLATES = {
+  '': 'Free write',
+  'open-when-sad': 'Open when you feel sad…',
+  'open-when-miss': 'Open when you miss me…',
+  'gratitude': 'Three things I love about you…',
+  'future-us': 'Dear future us…',
+};
 
 export default function Forever() {
   const { capsules, capsuleOps, loveNotes, noteOps, online } = useData();
   const { toast } = useToast();
+  const authorOptions = useAuthorOptions();
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('tab') === 'notes' ? 'notes' : 'capsules');
 
@@ -43,6 +53,32 @@ export default function Forever() {
     } catch {
       toast('Could not seal capsule', 'error');
     }
+  }
+
+  async function handleNoteVoice(e) {
+    const file = e.target.files?.[0];
+    if (!file || !online) return toast('Connect to upload voice', 'error');
+    try {
+      const uploaded = await api.uploadCapsuleMedia(file);
+      setNoteForm((f) => ({ ...f, voice_url: uploaded.url }));
+      toast('Voice attached', 'success');
+    } catch {
+      toast('Upload failed', 'error');
+    }
+  }
+
+  function applyTemplate(key) {
+    const starters = {
+      'open-when-sad': 'Open when you feel sad,\n\nI want you to know…',
+      'open-when-miss': 'Open when you miss me,\n\nRight now I am thinking…',
+      gratitude: 'Three things I love about you:\n1.\n2.\n3.',
+      'future-us': 'Dear future us,\n\nLooking back from…',
+    };
+    setNoteForm((f) => ({
+      ...f,
+      letter_template: key,
+      content: starters[key] || f.content,
+    }));
   }
 
   async function handleMediaUpload(e) {
@@ -133,6 +169,9 @@ export default function Forever() {
                       <Clock size={14} /> Unlocks {c.unlock_date}
                       {c.days_until_unlock != null && ` · ${c.days_until_unlock} days left`}
                     </p>
+                    <Button size="sm" variant="danger" className="mt-3" onClick={() => capsuleOps.remove(c.id)}>
+                      Delete
+                    </Button>
                   </Card>
                 ))}
               </div>
@@ -190,7 +229,11 @@ export default function Forever() {
             {loveNotes.map((n) => (
               <Card key={n.id} className="border-accent/10">
                 {n.mood && <Badge tone="accent">{n.mood}</Badge>}
+                {n.letter_template && (
+                  <p className="mt-2 text-xs text-muted">{LETTER_TEMPLATES[n.letter_template] || n.letter_template}</p>
+                )}
                 <p className="mt-3 whitespace-pre-wrap leading-relaxed">{n.content}</p>
+                {n.voice_url && <audio controls className="mt-3 w-full" src={resolveMediaUrl(n.voice_url)} />}
                 <p className="mt-4 text-sm text-muted">— {n.author}</p>
                 <Button size="sm" variant="danger" className="mt-3" onClick={() => noteOps.remove(n.id)}>Delete</Button>
               </Card>
@@ -202,7 +245,7 @@ export default function Forever() {
       <Modal open={showCapsuleForm} onClose={() => setShowCapsuleForm(false)} title="Seal a time capsule">
         <Input label="Title" value={capsuleForm.title} onChange={(e) => setCapsuleForm({ ...capsuleForm, title: e.target.value })} />
         <Select label="From" value={capsuleForm.author} onChange={(e) => setCapsuleForm({ ...capsuleForm, author: e.target.value })}>
-          <option>Us</option><option>Jay</option><option>Ikshika</option>
+          {authorOptions.map((a) => <option key={a}>{a}</option>)}
         </Select>
         <Input label="Unlock on" type="date" value={capsuleForm.unlock_date} onChange={(e) => setCapsuleForm({ ...capsuleForm, unlock_date: e.target.value })} />
         <TextArea label="Your letter (optional if you add media)" value={capsuleForm.content} onChange={(e) => setCapsuleForm({ ...capsuleForm, content: e.target.value })} />
@@ -221,13 +264,28 @@ export default function Forever() {
 
       <Modal open={showNoteForm} onClose={() => setShowNoteForm(false)} title="Love note">
         <Select label="From" value={noteForm.author} onChange={(e) => setNoteForm({ ...noteForm, author: e.target.value })}>
-          <option>Us</option><option>Jay</option><option>Ikshika</option>
+          {authorOptions.map((a) => <option key={a}>{a}</option>)}
+        </Select>
+        <Select label="Letter template" value={noteForm.letter_template} onChange={(e) => applyTemplate(e.target.value)}>
+          {Object.entries(LETTER_TEMPLATES).map(([k, v]) => (
+            <option key={k || 'free'} value={k}>{v}</option>
+          ))}
         </Select>
         <Select label="Mood" value={noteForm.mood} onChange={(e) => setNoteForm({ ...noteForm, mood: e.target.value })}>
           <option value="">—</option>
           {MOOD_OPTIONS.map((m) => <option key={m}>{m}</option>)}
         </Select>
+        <Input
+          label="Reveal on (optional — scheduled note)"
+          type="date"
+          value={noteForm.reveal_date}
+          onChange={(e) => setNoteForm({ ...noteForm, reveal_date: e.target.value })}
+        />
         <TextArea label="Note" value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })} placeholder="Thinking of you today because…" />
+        <label className="mt-4 block text-sm text-muted">
+          <Mic size={14} className="inline" /> Voice note
+          <input type="file" accept="audio/*" className="mt-2 block w-full text-sm" onChange={handleNoteVoice} />
+        </label>
         <div className="mt-6 flex gap-3">
           <Button variant="primary" onClick={saveNote}>Save note</Button>
           <Button onClick={() => setShowNoteForm(false)}>Cancel</Button>

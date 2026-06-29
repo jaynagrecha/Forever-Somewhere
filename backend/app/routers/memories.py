@@ -1,13 +1,16 @@
 import json
+import random
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
-from app.models.entities import Memory
+from app.core.uploads import couple_upload_dir
+from app.deps.couple import get_current_couple
+from app.models.entities import CoupleSpace, Memory
+from app.services.activity import log_activity
 from app.schemas.common import (
     MemoryCreate,
     MemoryOut,
@@ -23,18 +26,28 @@ def _row_to_out(row: Memory) -> MemoryOut:
     return MemoryOut.from_orm_row(row)
 
 
+def _memories(db: Session, couple_id: int):
+    return db.query(Memory).filter(Memory.couple_id == couple_id)
+
+
 @router.get("", response_model=list[MemoryOut])
-def list_memories(db: Session = Depends(get_db)) -> list[MemoryOut]:
-    rows = db.query(Memory).order_by(Memory.memory_date.desc().nullslast(), Memory.id.desc()).all()
+def list_memories(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> list[MemoryOut]:
+    rows = _memories(db, couple.id).order_by(Memory.memory_date.desc().nullslast(), Memory.id.desc()).all()
     return [_row_to_out(r) for r in rows]
 
 
 @router.get("/on-this-day", response_model=OnThisDayOut)
-def on_this_day(db: Session = Depends(get_db)) -> OnThisDayOut:
+def on_this_day(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> OnThisDayOut:
     from datetime import date
 
     today = date.today()
-    rows = db.query(Memory).all()
+    rows = _memories(db, couple.id).all()
     matched = [
         r
         for r in rows
@@ -43,9 +56,25 @@ def on_this_day(db: Session = Depends(get_db)) -> OnThisDayOut:
     return OnThisDayOut(memories=[_row_to_out(r) for r in matched])
 
 
+@router.get("/random", response_model=MemoryOut)
+def random_memory(
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> MemoryOut:
+    rows = _memories(db, couple.id).all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="No memories yet")
+    return _row_to_out(random.choice(rows))
+
+
 @router.post("", response_model=MemoryOut, status_code=201)
-def create_memory(payload: MemoryCreate, db: Session = Depends(get_db)) -> MemoryOut:
+def create_memory(
+    payload: MemoryCreate,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> MemoryOut:
     row = Memory(
+        couple_id=couple.id,
         title=payload.title,
         memory_date=parse_optional_date(payload.date),
         location=payload.location,
@@ -59,8 +88,22 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db)) -> Memor
         milestone_type=payload.milestone_type,
         playlist_url=payload.playlist_url,
         tags_json=json.dumps(payload.tags),
+        album_id=payload.album_id,
+        voice_url=payload.voice_url,
+        before_photo_json=json.dumps(payload.before_photo) if payload.before_photo else "",
+        after_photo_json=json.dumps(payload.after_photo) if payload.after_photo else "",
     )
     db.add(row)
+    db.flush()
+    log_activity(
+        db,
+        couple_id=couple.id,
+        kind="memory",
+        title=payload.title,
+        author=payload.added_by,
+        entity_id=row.id,
+        route="/moments",
+    )
     db.commit()
     db.refresh(row)
     return _row_to_out(row)
@@ -68,9 +111,12 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db)) -> Memor
 
 @router.put("/{memory_id}", response_model=MemoryOut)
 def update_memory(
-    memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db)
+    memory_id: int,
+    payload: MemoryUpdate,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
 ) -> MemoryOut:
-    row = db.query(Memory).filter(Memory.id == memory_id).first()
+    row = _memories(db, couple.id).filter(Memory.id == memory_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Memory not found")
 
@@ -82,6 +128,12 @@ def update_memory(
         row.photos_json = json.dumps(photos)
     if "tags" in data:
         row.tags_json = json.dumps(data.pop("tags") or [])
+    if "before_photo" in data:
+        bp = data.pop("before_photo")
+        row.before_photo_json = json.dumps(bp) if bp else ""
+    if "after_photo" in data:
+        ap = data.pop("after_photo")
+        row.after_photo_json = json.dumps(ap) if ap else ""
     field_map = {
         "title": "title",
         "location": "location",
@@ -93,6 +145,8 @@ def update_memory(
         "is_milestone": "is_milestone",
         "milestone_type": "milestone_type",
         "playlist_url": "playlist_url",
+        "album_id": "album_id",
+        "voice_url": "voice_url",
     }
     for key, attr in field_map.items():
         if key in data:
@@ -104,8 +158,12 @@ def update_memory(
 
 
 @router.delete("/{memory_id}", status_code=204)
-def delete_memory(memory_id: int, db: Session = Depends(get_db)) -> None:
-    row = db.query(Memory).filter(Memory.id == memory_id).first()
+def delete_memory(
+    memory_id: int,
+    couple: CoupleSpace = Depends(get_current_couple),
+    db: Session = Depends(get_db),
+) -> None:
+    row = _memories(db, couple.id).filter(Memory.id == memory_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Memory not found")
     db.delete(row)
@@ -113,13 +171,16 @@ def delete_memory(memory_id: int, db: Session = Depends(get_db)) -> None:
 
 
 @router.post("/upload", response_model=dict)
-async def upload_photo(file: UploadFile = File(...)) -> dict:
+async def upload_photo(
+    file: UploadFile = File(...),
+    couple: CoupleSpace = Depends(get_current_couple),
+) -> dict:
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only images allowed")
 
     ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
     name = f"{uuid.uuid4().hex}{ext}"
-    dest = settings.upload_dir / name
+    dest = couple_upload_dir(couple.id) / name
 
     content = await file.read()
     dest.write_bytes(content)
@@ -127,5 +188,5 @@ async def upload_photo(file: UploadFile = File(...)) -> dict:
     return {
         "id": name,
         "name": file.filename or name,
-        "url": f"/uploads/{name}",
+        "url": f"/uploads/{couple.id}/{name}",
     }

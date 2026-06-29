@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.migrate import run_migrations
-from app.routers import features, memories, misc, prompts, push, trip_pins
+from app.routers import couples, extras, features, memories, misc, prompts, push, trip_pins
 from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
 run_migrations()
@@ -29,6 +29,7 @@ uploads_path = Path(settings.upload_dir)
 uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
+app.include_router(couples.router)
 app.include_router(memories.router)
 app.include_router(trip_pins.router)
 app.include_router(misc.router_dreams)
@@ -37,6 +38,7 @@ app.include_router(misc.router_stats)
 app.include_router(misc.router_import)
 app.include_router(features.router)
 app.include_router(push.router)
+app.include_router(extras.router)
 app.include_router(prompts.router)
 
 

@@ -78,3 +78,21 @@ body {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 999px;
 }
+
+html[data-theme="light"] body {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .text-muted {
+  color: rgba(15, 23, 42, 0.65);
+}
+
+html[data-theme="light"] .rounded-2xl.border,
+html[data-theme="light"] [class*="border-white"] {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-theme="light"] [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
