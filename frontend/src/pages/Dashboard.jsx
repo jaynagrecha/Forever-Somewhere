@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera, Map, Sparkles, Heart, MapPin, Star, Settings, Calendar, Film, Moon,
@@ -32,18 +32,31 @@ const sections = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { stats, loading, connecting, online, reconnect } = useData();
+  const { loading, connecting, online, reconnect, memories, dreams, loveNotes, tripPins } = useData();
   const { t } = useLocale();
   const [extra, setExtra] = useState(null);
   const [showOpening, setShowOpening] = useState(
     () => localStorage.getItem('forever_names_anim_seen') !== '1'
   );
 
+  const statCounts = useMemo(() => {
+    const onMap =
+      tripPins.filter((p) => p.lat != null && p.lng != null && !(p.lat === 0 && p.lng === 0)).length
+      + memories.filter((m) => m.lat != null && m.lng != null).length;
+    return {
+      memories: memories.length,
+      onMap,
+      dreams: dreams.length,
+      milestones: memories.filter((m) => m.isMilestone || m.is_milestone).length,
+      loveNotes: loveNotes.length,
+    };
+  }, [memories, dreams, loveNotes, tripPins]);
+
   useEffect(() => {
     if (online) {
       api.getExtraInsights().then(setExtra).catch(() => setExtra(null));
     }
-  }, [online, stats?.memories_count]);
+  }, [online, memories.length]);
 
   const syncLabel = connecting ? '◌ Connecting…' : online ? `● ${t('synced')}` : `○ ${t('offline')}`;
 
@@ -88,13 +101,13 @@ export default function Dashboard() {
         <FeatureLink icon={Palette} title={t('moodBoard')} desc="Weekly & monthly moods" route="/mood-board" />
       </div>
 
-      {stats && (
+      {!loading && (
         <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
-          <Stat icon={Camera} label="Memories" value={stats.memories_count} />
-          <Stat icon={MapPin} label="On map" value={stats.places_on_map} />
-          <Stat icon={Sparkles} label="Dreams" value={stats.dreams_count} />
-          <Stat icon={Star} label="Milestones" value={stats.milestones_count} />
-          <Stat icon={Heart} label="Love notes" value={stats.love_notes_count || 0} />
+          <Stat icon={Camera} label="Memories" value={statCounts.memories} />
+          <Stat icon={MapPin} label="On map" value={statCounts.onMap} />
+          <Stat icon={Sparkles} label="Dreams" value={statCounts.dreams} />
+          <Stat icon={Star} label="Milestones" value={statCounts.milestones} />
+          <Stat icon={Heart} label="Love notes" value={statCounts.loveNotes} />
           {extra && (
             <Stat icon={Sparkle} label="Memory streak (wk)" value={extra.memory_streak_weeks} />
           )}
