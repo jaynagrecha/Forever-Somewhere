@@ -4,10 +4,11 @@ import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
-import { TextArea, Select } from '../components/ui/Input';
+import { TextArea } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { usePostingAuthor } from '../context/AuthContext';
+import PostingAs from '../components/PostingAs';
 import { canManageByAuthor } from '../utils/author';
 import DateNightDeck from '../components/DateNightDeck';
 import { api } from '../api/client';
@@ -20,11 +21,7 @@ function pickRandomPrompt(list) {
 export default function DateNight() {
   const { promptAnswers, promptOps } = useData();
   const { toast } = useToast();
-  const authorOptions = useAuthorOptions();
-  const { myName } = useMyName();
-  const defaultAuthor = usePartnerPicker(0);
-  const actor = myName || defaultAuthor;
-  const [author, setAuthor] = useState(actor);
+  const { author: actor, needsSetup } = usePostingAuthor();
 
   useEffect(() => {
     let active = true;
@@ -76,12 +73,13 @@ export default function DateNight() {
 
   async function saveAnswer() {
     if (!current) return toast('Pick a question first', 'error');
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!answer.trim()) return toast('Write your answer', 'error');
     await promptOps.create({
       prompt_id: current.id,
       question: current.text,
       answer,
-      author,
+      author: actor,
     });
     toast('Answer saved for both of you', 'success');
     setShowAnswer(false);
@@ -173,11 +171,7 @@ export default function DateNight() {
 
       <Modal open={showAnswer} onClose={() => setShowAnswer(false)} title="Your answer">
         <p className="mb-4 text-muted">{current?.text || 'Pick a question'}</p>
-        <Select label="From" value={author} onChange={(e) => setAuthor(e.target.value)}>
-          {authorOptions.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </Select>
+        <PostingAs />
         <TextArea label="Answer" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Take your time…" />
         <div className="mt-6 flex gap-3">
           <Button variant="primary" onClick={saveAnswer}>

@@ -152,8 +152,9 @@ export function DataProvider({ children }) {
   const memoryOps = useMemo(
     () => ({
       create: async (payload) => {
+        const actor = payload.added_by;
         if (online) {
-          const created = await api.createMemory(payload);
+          const created = await api.createMemory(payload, actor);
           setMemories((prev) => [normalizeMemory(created), ...prev]);
           return normalizeMemory(created);
         }
@@ -212,8 +213,9 @@ export function DataProvider({ children }) {
   const dreamOps = useMemo(
     () => ({
       create: async (payload) => {
+        const actor = payload.created_by;
         if (online) {
-          const created = await api.createDream(payload);
+          const created = await api.createDream(payload, actor);
           setDreams((prev) => [created, ...prev]);
           return created;
         }
@@ -271,8 +273,9 @@ export function DataProvider({ children }) {
   const capsuleOps = useMemo(
     () => ({
       create: async (payload) => {
+        const actor = payload.author;
         if (online) {
-          const created = await api.createCapsule(payload);
+          const created = await api.createCapsule(payload, actor);
           setCapsules((prev) => [...prev, created].sort((a, b) => a.unlock_date.localeCompare(b.unlock_date)));
           return created;
         }
@@ -320,8 +323,9 @@ export function DataProvider({ children }) {
   const noteOps = useMemo(
     () => ({
       create: async (payload) => {
+        const actor = payload.author;
         if (online) {
-          const created = await api.createLoveNote(payload);
+          const created = await api.createLoveNote(payload, actor);
           setLoveNotes((prev) => [created, ...prev]);
           return created;
         }
@@ -369,8 +373,9 @@ export function DataProvider({ children }) {
   const promptOps = useMemo(
     () => ({
       create: async (payload) => {
+        const actor = payload.author;
         if (online) {
-          const created = await api.savePromptAnswer(payload);
+          const created = await api.savePromptAnswer(payload, actor);
           setPromptAnswers((prev) => [created, ...prev]);
           return created;
         }

@@ -9,7 +9,8 @@ import Modal from '../components/ui/Modal';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { usePostingAuthor } from '../context/AuthContext';
+import PostingAs from '../components/PostingAs';
 import { canManageByAuthor } from '../utils/author';
 import { api } from '../api/client';
 import { compressImage } from '../utils/compressImage';
@@ -58,10 +59,7 @@ function buildInitialForm() {
 export default function Moments() {
   const { memories, memoryOps, dreamOps, online } = useData();
   const { toast } = useToast();
-  const authorOptions = useAuthorOptions();
-  const { myName } = useMyName();
-  const defaultAuthor = usePartnerPicker(0);
-  const actor = myName || defaultAuthor;
+  const { author: actor, needsSetup } = usePostingAuthor();
   const [params, setParams] = useSearchParams();
 
   const [showForm, setShowForm] = useState(() => readSearchParams().get('new') === '1');
@@ -133,7 +131,7 @@ export default function Moments() {
   );
 
   function resetForm() {
-    setForm({ ...emptyForm, added_by: defaultAuthor });
+    setForm({ ...emptyForm, added_by: actor });
     setEditingId(null);
     setLinkedDreamId(null);
     setLocationQuery('');
@@ -162,7 +160,7 @@ export default function Moments() {
       milestone_type: m.milestoneType || m.milestone_type || '💍 Engagement',
       playlist_url: m.playlist_url || '',
       tags: m.tags || [],
-      added_by: m.added_by || m.addedBy || defaultAuthor,
+      added_by: m.added_by || m.addedBy || actor,
     });
     setLocationQuery(m.location || '');
     setShowForm(true);
@@ -196,6 +194,7 @@ export default function Moments() {
   }
 
   async function save() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!form.title.trim()) return toast('Enter a title', 'error');
     if (form.lat == null) return toast('Pick a location from suggestions', 'error');
 
@@ -373,6 +372,7 @@ export default function Moments() {
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={editingId ? 'Edit Memory' : 'Add Memory'} wide>
         <div className="space-y-4">
+          <PostingAs />
           <Input
             label="Title"
             value={form.title}
@@ -396,9 +396,6 @@ export default function Moments() {
         <Select label="Trip album" value={form.album_id || ''} onChange={(e) => setForm({ ...form, album_id: e.target.value ? Number(e.target.value) : null })}>
           <option value="">None</option>
           {albums.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-        </Select>
-        <Select label="Added by" value={form.added_by || defaultAuthor} onChange={(e) => setForm({ ...form, added_by: e.target.value })}>
-          {authorOptions.filter((a) => a !== 'Us').map((a) => <option key={a}>{a}</option>)}
         </Select>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-sm text-muted">Before photo<input type="file" accept="image/*" className="mt-2 block w-full" onChange={(e) => uploadSidePhoto(e, 'before_photo')} /></label>

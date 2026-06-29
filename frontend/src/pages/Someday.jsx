@@ -8,7 +8,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
-import { useAuth, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { useAuth, usePostingAuthor } from '../context/AuthContext';
 import { canManageByAuthor } from '../utils/author';
 import { useToast } from '../context/ToastContext';
 import { buildDreamMemoryParams } from '../utils/insights';
@@ -39,9 +39,7 @@ export default function Someday() {
   const { dreams, dreamOps, insights } = useData();
   const { toast } = useToast();
   const { partnerNames } = useAuth();
-  const { myName } = useMyName();
-  const defaultAuthor = usePartnerPicker(0);
-  const actor = myName || defaultAuthor;
+  const { author: actor, needsSetup } = usePostingAuthor();
   const voters = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   const [showForm, setShowForm] = useState(() => params.get('new') === '1');
   const [editingId, setEditingId] = useState(null);
@@ -87,6 +85,7 @@ export default function Someday() {
   }
 
   async function save() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!form.title.trim()) return toast('Enter a dream title', 'error');
     try {
       if (editingId) await dreamOps.update(editingId, form);

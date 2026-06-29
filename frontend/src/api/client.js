@@ -145,7 +145,8 @@ export const api = {
   search: (q) => request(`/api/search?q=${encodeURIComponent(q)}`),
 
   getMemories: () => request('/api/memories'),
-  createMemory: (data) => request('/api/memories', { method: 'POST', body: JSON.stringify(data) }),
+  createMemory: (data, actor) =>
+    request(withAuthorQuery('/api/memories', actor), { method: 'POST', body: JSON.stringify(data) }),
   updateMemory: (id, data, author) =>
     request(withAuthorQuery(`/api/memories/${id}`, author), { method: 'PUT', body: JSON.stringify(data) }),
   deleteMemory: (id, author) => request(withAuthorQuery(`/api/memories/${id}`, author), { method: 'DELETE' }),
@@ -165,13 +166,15 @@ export const api = {
   deleteTripPin: (id) => request(`/api/trip-pins/${id}`, { method: 'DELETE' }),
 
   getDreams: () => request('/api/dreams'),
-  createDream: (data) => request('/api/dreams', { method: 'POST', body: JSON.stringify(data) }),
+  createDream: (data, actor) =>
+    request(withAuthorQuery('/api/dreams', actor), { method: 'POST', body: JSON.stringify(data) }),
   updateDream: (id, data) => request(`/api/dreams/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteDream: (id, author) => request(withAuthorQuery(`/api/dreams/${id}`, author), { method: 'DELETE' }),
   promoteDream: (id) => request(`/api/dreams/${id}/promote-to-map`, { method: 'POST' }),
 
   getCapsules: () => request('/api/capsules'),
-  createCapsule: (data) => request('/api/capsules', { method: 'POST', body: JSON.stringify(data) }),
+  createCapsule: (data, actor) =>
+    request(withAuthorQuery('/api/capsules', actor), { method: 'POST', body: JSON.stringify(data) }),
   openCapsule: (id) => request(`/api/capsules/${id}/open`, { method: 'POST' }),
   deleteCapsule: (id, author) => request(withAuthorQuery(`/api/capsules/${id}`, author), { method: 'DELETE' }),
   uploadCapsuleMedia: async (file) => {
@@ -186,7 +189,8 @@ export const api = {
   },
 
   getLoveNotes: () => request('/api/love-notes'),
-  createLoveNote: (data) => request('/api/love-notes', { method: 'POST', body: JSON.stringify(data) }),
+  createLoveNote: (data, actor) =>
+    request(withAuthorQuery('/api/love-notes', actor), { method: 'POST', body: JSON.stringify(data) }),
   deleteLoveNote: (id, author) => request(withAuthorQuery(`/api/love-notes/${id}`, author), { method: 'DELETE' }),
 
   getImportantDates: () => request('/api/important-dates'),
@@ -196,8 +200,8 @@ export const api = {
 
   getPrompts: () => request('/api/prompts'),
   getPromptAnswers: () => request('/api/prompts/answers'),
-  savePromptAnswer: (data) =>
-    request('/api/prompts/answers', { method: 'POST', body: JSON.stringify(data) }),
+  savePromptAnswer: (data, actor) =>
+    request(withAuthorQuery('/api/prompts/answers', actor), { method: 'POST', body: JSON.stringify(data) }),
   deletePromptAnswer: (id, author) =>
     request(withAuthorQuery(`/api/prompts/answers/${id}`, author), { method: 'DELETE' }),
 
@@ -215,14 +219,16 @@ export const api = {
   createAlbum: (data) => request('/api/albums', { method: 'POST', body: JSON.stringify(data) }),
   deleteAlbum: (id) => request(`/api/albums/${id}`, { method: 'DELETE' }),
   getDailyQuestion: () => request('/api/daily-question'),
-  saveDailyAnswer: (data) =>
-    request('/api/daily-question/answer', { method: 'POST', body: JSON.stringify(data) }),
+  saveDailyAnswer: (data, actor) =>
+    request(withAuthorQuery('/api/daily-question/answer', actor), { method: 'POST', body: JSON.stringify(data) }),
   getQuiz: () => request('/api/quiz'),
   getQuizResults: () => request('/api/quiz/results'),
-  submitQuiz: (data) => request('/api/quiz/submit', { method: 'POST', body: JSON.stringify(data) }),
+  submitQuiz: (data, actor) =>
+    request(withAuthorQuery('/api/quiz/submit', actor), { method: 'POST', body: JSON.stringify(data) }),
   getSeasons: (periodType = 'week') =>
     request(`/api/seasons?period_type=${encodeURIComponent(periodType)}`),
-  saveSeason: (data) => request('/api/seasons', { method: 'POST', body: JSON.stringify(data) }),
+  saveSeason: (data, actor) =>
+    request(withAuthorQuery('/api/seasons', actor), { method: 'POST', body: JSON.stringify(data) }),
   deleteSeason: (id, author) =>
     request(`/api/seasons/${id}?author=${encodeURIComponent(author)}`, { method: 'DELETE' }),
   getStory: () => request('/api/story'),

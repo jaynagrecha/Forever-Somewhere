@@ -10,7 +10,8 @@ import CapsuleWall from '../components/CapsuleWall';
 import { Input, TextArea, Select } from '../components/ui/Input';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, useMyName, usePartnerPicker } from '../context/AuthContext';
+import { usePostingAuthor } from '../context/AuthContext';
+import PostingAs from '../components/PostingAs';
 import { canManageByAuthor } from '../utils/author';
 import { MOOD_OPTIONS } from '../utils/constants';
 import { api } from '../api/client';
@@ -39,10 +40,7 @@ function CapsuleMediaPlayer({ url, type }) {
 export default function Forever() {
   const { capsules, capsuleOps, loveNotes, noteOps, online } = useData();
   const { toast } = useToast();
-  const authorOptions = useAuthorOptions();
-  const { myName } = useMyName();
-  const defaultAuthor = usePartnerPicker(0);
-  const actor = myName || defaultAuthor;
+  const { author: actor, needsSetup } = usePostingAuthor();
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('tab') === 'notes' ? 'notes' : 'capsules');
 
@@ -50,8 +48,8 @@ export default function Forever() {
   const [showNoteForm, setShowNoteForm] = useState(
     params.get('tab') === 'notes' && params.get('new') === '1'
   );
-  const [capsuleForm, setCapsuleForm] = useState(() => buildEmptyCapsule(defaultAuthor));
-  const [noteForm, setNoteForm] = useState(() => buildEmptyNote(defaultAuthor));
+  const [capsuleForm, setCapsuleForm] = useState(() => buildEmptyCapsule(actor));
+  const [noteForm, setNoteForm] = useState(() => buildEmptyNote(actor));
   const [opened, setOpened] = useState(null);
   const [moodPrompts, setMoodPrompts] = useState([]);
   const deepLinkHandled = useRef('');
@@ -133,6 +131,7 @@ export default function Forever() {
   }, [linkedNoteTarget]);
 
   async function saveCapsule() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!capsuleForm.title.trim() || !capsuleForm.unlock_date) {
       return toast('Fill title and unlock date', 'error');
     }
@@ -204,6 +203,7 @@ export default function Forever() {
   }
 
   async function saveNote() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!noteForm.content.trim()) return toast('Write something', 'error');
     try {
       await noteOps.create({ ...noteForm, author: noteForm.author || actor });
@@ -304,10 +304,8 @@ export default function Forever() {
       )}
 
       <Modal open={showCapsuleForm} onClose={() => setShowCapsuleForm(false)} title="Seal a time capsule">
+        <PostingAs />
         <Input label="Title" value={capsuleForm.title} onChange={(e) => setCapsuleForm({ ...capsuleForm, title: e.target.value })} />
-        <Select label="From" value={capsuleForm.author} onChange={(e) => setCapsuleForm({ ...capsuleForm, author: e.target.value })}>
-          {authorOptions.map((a) => <option key={a}>{a}</option>)}
-        </Select>
         <Input label="Unlock on" type="date" value={capsuleForm.unlock_date} onChange={(e) => setCapsuleForm({ ...capsuleForm, unlock_date: e.target.value })} />
         <TextArea label="Your letter (optional if you add media)" value={capsuleForm.content} onChange={(e) => setCapsuleForm({ ...capsuleForm, content: e.target.value })} />
         <label className="mt-4 block text-sm text-muted">
@@ -324,9 +322,7 @@ export default function Forever() {
       </Modal>
 
       <Modal open={showNoteForm} onClose={() => setShowNoteForm(false)} title="Love note" wide>
-        <Select label="From" value={noteForm.author} onChange={(e) => setNoteForm({ ...noteForm, author: e.target.value })}>
-          {authorOptions.map((a) => <option key={a}>{a}</option>)}
-        </Select>
+        <PostingAs />
         <Select label="Letter template" value={noteForm.letter_template} onChange={(e) => applyTemplate(e.target.value)}>
           {Object.entries(LETTER_TEMPLATES).map(([k, v]) => (
             <option key={k || 'free'} value={k}>{v}</option>

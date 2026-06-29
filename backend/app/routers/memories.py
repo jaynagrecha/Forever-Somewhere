@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.author_guard import assert_can_modify
+from app.core.author_guard import assert_can_modify, assert_posts_as_self
 
 from app.core.database import get_db
 from app.core.uploads import couple_upload_dir
@@ -72,9 +72,12 @@ def random_memory(
 @router.post("", response_model=MemoryOut, status_code=201)
 def create_memory(
     payload: MemoryCreate,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> MemoryOut:
+    added_by = payload.added_by or "Us"
+    assert_posts_as_self(actor, added_by, couple)
     row = Memory(
         couple_id=couple.id,
         title=payload.title,
@@ -94,7 +97,7 @@ def create_memory(
         voice_url=payload.voice_url,
         before_photo_json=json.dumps(payload.before_photo) if payload.before_photo else "",
         after_photo_json=json.dumps(payload.after_photo) if payload.after_photo else "",
-        added_by=payload.added_by or "Us",
+        added_by=payload.added_by or added_by,
     )
     db.add(row)
     db.flush()

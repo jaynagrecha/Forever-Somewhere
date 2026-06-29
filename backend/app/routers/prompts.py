@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.author_guard import assert_can_modify
+from app.core.author_guard import assert_can_modify, assert_posts_as_self
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, DatePromptAnswer
@@ -46,9 +46,11 @@ def list_answers(
 @router.post("/answers", response_model=PromptAnswerOut, status_code=201)
 def save_answer(
     payload: PromptAnswerCreate,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> PromptAnswerOut:
+    assert_posts_as_self(actor, payload.author, couple)
     row = DatePromptAnswer(couple_id=couple.id, **payload.model_dump())
     db.add(row)
     db.commit()

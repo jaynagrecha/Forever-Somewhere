@@ -6,7 +6,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.author_guard import assert_can_modify
+from app.core.author_guard import assert_can_modify, assert_posts_as_self
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
 from app.models.entities import CoupleSpace, Dream, LoveNote, Memory, TimeCapsule, TripPin
@@ -69,6 +69,7 @@ def list_dreams(
 @router_dreams.post("", response_model=DreamOut, status_code=201)
 def create_dream(
     payload: DreamCreate,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> DreamOut:
@@ -76,6 +77,7 @@ def create_dream(
     checklist = data.pop("checklist", [])
     votes = data.pop("votes", {})
     created_by = data.pop("created_by", "Us") or "Us"
+    assert_posts_as_self(actor, created_by, couple)
     row = Dream(
         couple_id=couple.id,
         created_by=created_by,
@@ -210,9 +212,11 @@ def list_capsules(
 @router_capsules.post("", response_model=CapsuleOut, status_code=201)
 def create_capsule(
     payload: CapsuleCreate,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> CapsuleOut:
+    assert_posts_as_self(actor, payload.author, couple)
     row = TimeCapsule(couple_id=couple.id, **payload.model_dump())
     db.add(row)
     db.flush()

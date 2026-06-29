@@ -20,3 +20,13 @@ def assert_can_modify(actor: str, content_author: str | None, couple: CoupleSpac
         return
     if owner != actor:
         raise HTTPException(status_code=403, detail="You can only change your own entries")
+
+
+def assert_posts_as_self(actor: str, claimed_author: str | None, couple: CoupleSpace) -> None:
+    """Block posting content under a partner's name."""
+    assert_actor(actor, couple)
+    owner = (claimed_author or "").strip()
+    if not owner or owner == "Us":
+        raise HTTPException(status_code=400, detail="Author required")
+    if owner != actor:
+        raise HTTPException(status_code=403, detail="You can only post as yourself")

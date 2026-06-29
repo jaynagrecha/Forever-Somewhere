@@ -3,17 +3,16 @@ import { HeartHandshake } from 'lucide-react';
 import PageShell from '../components/Layout/PageShell';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Select } from '../components/ui/Input';
 import { api } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
+import { usePostingAuthor } from '../context/AuthContext';
+import PostingAs from '../components/PostingAs';
 
 export default function Quiz() {
   const { toast } = useToast();
   const [questions, setQuestions] = useState([]);
   const [results, setResults] = useState([]);
-  const authorOptions = useAuthorOptions().filter((a) => a !== 'Us');
-  const [author, setAuthor] = useState(usePartnerPicker(0));
+  const { author, needsSetup } = usePostingAuthor();
   const [answers, setAnswers] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -36,12 +35,13 @@ export default function Quiz() {
   }
 
   async function submit() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (questions.some((q) => !answers[q.id])) {
       return toast('Answer all questions', 'error');
     }
     setSaving(true);
     try {
-      const res = await api.submitQuiz({ author, answers });
+      const res = await api.submitQuiz({ author, answers }, author);
       setResults(res.results || []);
       toast('Quiz saved!', 'success');
     } catch {
@@ -57,11 +57,7 @@ export default function Quiz() {
   return (
     <PageShell title="💞 Compatibility quiz" subtitle="Answer separately — compare when both are done.">
       <Card className="mb-8">
-        <Select label="You are" value={author} onChange={(e) => setAuthor(e.target.value)}>
-          {authorOptions.map((name) => (
-            <option key={name}>{name}</option>
-          ))}
-        </Select>
+        <PostingAs className="mb-6" />
         <div className="mt-6 space-y-6">
           {questions.map((q) => (
             <div key={q.id}>

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.author_guard import assert_can_modify
+from app.core.author_guard import assert_can_modify, assert_posts_as_self
 from app.core.database import get_db
 from app.core.datetime_utils import utc_iso
 from app.core.season_utils import resolve_period_start
@@ -235,9 +235,11 @@ def get_daily_question(
 @router.post("/daily-question/answer")
 def save_daily_answer(
     payload: DailyAnswerIn,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict:
+    assert_posts_as_self(actor, payload.author, couple)
     today = date.today()
     q = question_for_date(today)
     existing = (
@@ -283,9 +285,11 @@ def quiz_results(
 @router.post("/quiz/submit")
 def submit_quiz(
     payload: QuizSubmit,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> dict:
+    assert_posts_as_self(actor, payload.author, couple)
     meta = _meta(db, couple.id)
     results = json.loads(meta.quiz_results_json or "[]")
     results = [r for r in results if r.get("author") != payload.author]
@@ -327,9 +331,11 @@ def list_seasons(
 @router.post("/seasons", response_model=SeasonEntryOut, status_code=201)
 def upsert_season(
     payload: SeasonEntryIn,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> SeasonEntryOut:
+    assert_posts_as_self(actor, payload.author, couple)
     names = {couple.partner1_name, couple.partner2_name, "Us"}
     if payload.author not in names:
         raise HTTPException(status_code=400, detail="Invalid author")

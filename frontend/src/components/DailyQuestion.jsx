@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { MessageCircleHeart } from 'lucide-react';
 import Card from './ui/Card';
 import Button from './ui/Button';
-import { TextArea, Select } from './ui/Input';
+import { TextArea } from './ui/Input';
 import { api } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { useAuthorOptions, usePartnerPicker } from '../context/AuthContext';
+import { usePostingAuthor } from '../context/AuthContext';
+import PostingAs from './PostingAs';
 
 export default function DailyQuestion() {
   const { toast } = useToast();
   const [data, setData] = useState(null);
-  const authorOptions = useAuthorOptions().filter((a) => a !== 'Us');
-  const [author, setAuthor] = useState(usePartnerPicker(0));
+  const { author, needsSetup } = usePostingAuthor();
   const [answer, setAnswer] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -39,10 +39,11 @@ export default function DailyQuestion() {
   }, []);
 
   async function submit() {
+    if (needsSetup) return toast('Set who you are in Settings first', 'error');
     if (!answer.trim()) return toast('Write your answer', 'error');
     setSaving(true);
     try {
-      await api.saveDailyAnswer({ author, answer });
+      await api.saveDailyAnswer({ author, answer }, author);
       toast('Answer saved — waiting for partner', 'success');
       setAnswer('');
       await load();
@@ -78,11 +79,7 @@ export default function DailyQuestion() {
               Waiting for: {data.waiting_for.join(', ')}
             </p>
           )}
-          <Select label="You are" value={author} onChange={(e) => setAuthor(e.target.value)}>
-            {authorOptions.map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </Select>
+          <PostingAs className="mb-3" />
           <TextArea
             label="Your answer (hidden until both answer)"
             value={answer}

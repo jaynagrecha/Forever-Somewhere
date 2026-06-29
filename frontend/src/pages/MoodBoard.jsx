@@ -155,7 +155,7 @@ export default function MoodBoard() {
         description: form.description.trim(),
         color: form.color,
         photo_url: form.photo_url,
-      });
+      }, author);
       toast(editingId ? 'Season updated' : 'Your mood is shared', 'success');
       await refreshSeasons();
     } catch (err) {

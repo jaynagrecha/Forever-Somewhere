@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.author_guard import assert_can_modify
+from app.core.author_guard import assert_can_modify, assert_posts_as_self
 from app.core.datetime_utils import days_until
 from app.core.database import get_db
 from app.deps.couple import get_current_couple
@@ -66,9 +66,11 @@ def list_love_notes(
 @router.post("/love-notes", response_model=LoveNoteOut, status_code=201)
 def create_love_note(
     payload: LoveNoteCreate,
+    actor: str = Query(min_length=1, max_length=64),
     couple: CoupleSpace = Depends(get_current_couple),
     db: Session = Depends(get_db),
 ) -> LoveNoteOut:
+    assert_posts_as_self(actor, payload.author, couple)
     data = payload.model_dump()
     reveal_raw = data.pop("reveal_date", "")
     reveal_date = parse_optional_date(reveal_raw) if reveal_raw else None

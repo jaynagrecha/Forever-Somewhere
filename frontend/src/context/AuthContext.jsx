@@ -105,7 +105,7 @@ export function useAuth() {
   return ctx;
 }
 
-/** Dropdown options: both partners + "Us" */
+/** @deprecated Prefer usePostingAuthor — only shows this device's identity */
 export function useAuthorOptions() {
   const { partnerNames } = useAuth();
   return useMemo(() => {
@@ -123,6 +123,17 @@ export function usePartnerPicker(defaultIndex = 0) {
   const names = partnerNames.length >= 2 ? partnerNames : ['Partner 1', 'Partner 2'];
   if (myName && names.includes(myName)) return myName;
   return names[defaultIndex] || names[0];
+}
+
+/** Locked author for create forms on this device */
+export function usePostingAuthor() {
+  const { myName, needsSetup } = useMyName();
+  const fallback = usePartnerPicker(0);
+  const author = myName || fallback;
+  return useMemo(
+    () => ({ author, myName, needsSetup }),
+    [author, myName, needsSetup]
+  );
 }
 
 /** Who is using this device — stored locally so pings and answers credit the right partner */
