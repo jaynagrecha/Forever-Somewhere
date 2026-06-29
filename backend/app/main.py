@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.migrate import run_migrations
 from app.core.vapid_store import ensure_vapid_keys
-from app.routers import couples, extras, features, memories, misc, prompts, push, romance, trip_pins
+from app.routers import couples, extras, features, memories, misc, prompts, push, recovery, romance, trip_pins
 from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
 Base.metadata.create_all(bind=engine)
@@ -32,6 +32,7 @@ uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
 app.include_router(couples.router)
+app.include_router(recovery.router)
 app.include_router(memories.router)
 app.include_router(trip_pins.router)
 app.include_router(misc.router_dreams)

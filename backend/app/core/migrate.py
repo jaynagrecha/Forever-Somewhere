@@ -199,6 +199,16 @@ def run_migrations() -> None:
 
         tables = inspect(engine).get_table_names()
         if "couple_spaces" in tables:
+            cols = {c["name"] for c in inspector.get_columns("couple_spaces")}
+            _add_col(conn, "couple_spaces", "partner1_recovery_email", "partner1_recovery_email VARCHAR(255) DEFAULT ''", cols)
+            _add_col(conn, "couple_spaces", "partner2_recovery_email", "partner2_recovery_email VARCHAR(255) DEFAULT ''", cols)
+            _add_col(conn, "couple_spaces", "partner1_recovery_verified", "partner1_recovery_verified BOOLEAN DEFAULT 0", cols)
+            _add_col(conn, "couple_spaces", "partner2_recovery_verified", "partner2_recovery_verified BOOLEAN DEFAULT 0", cols)
+            _add_col(conn, "couple_spaces", "partner1_backup_code_hash", "partner1_backup_code_hash VARCHAR(64) DEFAULT ''", cols)
+            _add_col(conn, "couple_spaces", "partner2_backup_code_hash", "partner2_backup_code_hash VARCHAR(64) DEFAULT ''", cols)
+            conn.commit()
+
+        if "couple_spaces" in tables:
             try:
                 _backfill_legacy_couple(conn)
                 _migrate_couple_sessions(conn)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages } from 'lucide-react';
+import { Download, CalendarPlus, Smartphone, Bell, Cloud, Upload, Sun, Moon, Languages, Shield } from 'lucide-react';
 import PageShell, { SectionHint } from '../components/Layout/PageShell';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -18,6 +18,24 @@ import {
   ensurePushRegistered,
   testPushOnDevice,
 } from '../utils/notifications';
+import { parseUtcIso } from '../utils/datetime';
+
+const AUDIT_LABELS = {
+  verify_otp_sent: 'Verification code sent',
+  recovery_email_verified: 'Recovery email verified',
+  recover_otp_sent: 'Recovery code sent',
+  recover_success: 'Invite code emailed',
+  recover_failed: 'Failed recovery attempt',
+  backup_code_generated: 'Backup code generated',
+  backup_recover_success: 'Recovered via backup code',
+  backup_attempt: 'Backup recovery used',
+};
+
+function partnerSlot(partnerNames, myName) {
+  if (myName === partnerNames[0]) return 1;
+  if (myName === partnerNames[1]) return 2;
+  return null;
+}
 
 export default function Settings() {
   const { memories, tripPins, dreams, capsules, loveNotes, importantDates, dateOps, online, connecting, reconnect, refreshAll } = useData();
@@ -30,12 +48,63 @@ export default function Settings() {
   const [annDate, setAnnDate] = useState('');
   const [notifOn, setNotifOn] = useState(notificationsEnabled());
   const [pushStatus, setPushStatus] = useState(null);
+  const [recoverySettings, setRecoverySettings] = useState(null);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [verifyOtp, setVerifyOtp] = useState('');
+  const [verifyStep, setVerifyStep] = useState(1);
+  const [backupCodeShown, setBackupCodeShown] = useState('');
 
   useEffect(() => {
     if (online) {
       api.getPushStatus().then(setPushStatus).catch(() => setPushStatus(null));
+      api.getRecoverySettings().then(setRecoverySettings).catch(() => setRecoverySettings(null));
     }
   }, [online, notifOn]);
+
+  const recoverySlot = partnerSlot(partnerNames, myName);
+  const myRecovery =
+    recoverySlot === 1 ? recoverySettings?.partner1 : recoverySlot === 2 ? recoverySettings?.partner2 : null;
+
+  async function sendVerifyOtp() {
+    if (!recoverySlot) return toast('Set who you are on this device first', 'error');
+    if (!recoveryEmail.trim()) return toast('Enter your email', 'error');
+    try {
+      await api.requestRecoveryEmailVerify({ partner_slot: recoverySlot, email: recoveryEmail.trim() });
+      toast('Verification code sent — check your inbox', 'success');
+      setVerifyStep(2);
+    } catch (err) {
+      toast(err.message || 'Could not send code', 'error');
+    }
+  }
+
+  async function confirmVerifyOtp() {
+    if (!recoverySlot) return;
+    try {
+      await api.confirmRecoveryEmailVerify({
+        partner_slot: recoverySlot,
+        email: recoveryEmail.trim(),
+        otp: verifyOtp.trim(),
+      });
+      toast('Recovery email saved', 'success');
+      setVerifyStep(1);
+      setVerifyOtp('');
+      api.getRecoverySettings().then(setRecoverySettings).catch(() => {});
+    } catch (err) {
+      toast(err.message || 'Invalid code', 'error');
+    }
+  }
+
+  async function generateBackup() {
+    if (!recoverySlot) return toast('Set who you are on this device first', 'error');
+    try {
+      const res = await api.generateRecoveryBackupCode({ partner_slot: recoverySlot });
+      setBackupCodeShown(res.backup_code);
+      toast('Save this code now — shown once', 'success');
+      api.getRecoverySettings().then(setRecoverySettings).catch(() => {});
+    } catch (err) {
+      toast(err.message || 'Could not generate code', 'error');
+    }
+  }
 
   async function addAnniversary() {
     if (!annTitle || !annDate) return toast('Fill title and date', 'error');
@@ -161,6 +230,108 @@ export default function Settings() {
               Sign out on this device
             </Button>
           </div>
+        </Card>
+
+        <Card className="md:col-span-2 border-accent/20">
+          <Shield className="mb-3 text-accent-soft" size={24} />
+          <h2 className="font-display text-xl">Account recovery</h2>
+          <p className="mt-2 text-sm text-muted">
+            If every device is signed out, recover your invite code with a verified email or a one-time backup code.
+            Each partner sets up their own recovery — not shared.
+          </p>
+          {!recoverySlot && (
+            <p className="mt-3 text-sm text-amber-200/90">Set &quot;Who&apos;s on this device?&quot; below first.</p>
+          )}
+          {recoverySlot && myRecovery && (
+            <div className="mt-4 space-y-4">
+              <p className="text-sm">
+                Status:{' '}
+                {myRecovery.verified ? (
+                  <span className="text-green-400">✓ {myRecovery.email_masked}</span>
+                ) : (
+                  <span className="text-muted">No verified recovery email yet</span>
+                )}
+                {myRecovery.has_backup && (
+                  <span className="ml-2 text-accent-soft">· Backup code on file</span>
+                )}
+              </p>
+              {!myRecovery.verified && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    label="Recovery email (yours only)"
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={verifyStep === 2}
+                  />
+                  {verifyStep === 1 ? (
+                    <div className="flex items-end">
+                      <Button variant="primary" onClick={sendVerifyOtp}>Send verification code</Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        label="6-digit code from email"
+                        value={verifyOtp}
+                        onChange={(e) => setVerifyOtp(e.target.value)}
+                        placeholder="123456"
+                        maxLength={6}
+                      />
+                      <div className="flex flex-wrap items-end gap-2">
+                        <Button variant="primary" onClick={confirmVerifyOtp}>Confirm email</Button>
+                        <Button variant="secondary" onClick={() => { setVerifyStep(1); setVerifyOtp(''); }}>Change email</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <div>
+                <Button variant="secondary" onClick={generateBackup} disabled={!recoverySlot}>
+                  {myRecovery.has_backup ? 'Generate new backup code' : 'Generate backup code'}
+                </Button>
+                <p className="mt-2 text-xs text-muted">
+                  Shown once — store in a password manager or safe place. Regenerating invalidates the old code.
+                </p>
+              </div>
+              {backupCodeShown && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-200">Save now — won&apos;t show again</p>
+                  <p className="mt-2 font-mono text-lg tracking-wider text-white">{backupCodeShown}</p>
+                  <Button
+                    className="mt-3"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(backupCodeShown);
+                      toast('Backup code copied', 'success');
+                    }}
+                  >
+                    Copy code
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          {recoverySettings?.audit?.length > 0 && (
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">Recent recovery activity</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted">
+                {recoverySettings.audit.slice(0, 8).map((row, i) => (
+                  <li key={`${row.event_type}-${row.created_at}-${i}`}>
+                    {AUDIT_LABELS[row.event_type] || row.event_type}
+                    {' · '}
+                    {parseUtcIso(row.created_at)?.toLocaleString() ?? row.created_at}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-4 text-xs text-muted">
+            Lost everything?{' '}
+            <a href="/recover" className="text-accent-soft underline">Recover our space</a>
+            {' '}from the landing page.
+          </p>
         </Card>
 
       <div className="grid gap-6 md:grid-cols-2">

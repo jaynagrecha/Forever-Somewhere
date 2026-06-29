@@ -18,6 +18,36 @@ class CoupleSpace(Base):
     partner2_name: Mapped[str] = mapped_column(String(64), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), default="")
     password_hash: Mapped[str] = mapped_column(String(255), default="")
+    partner1_recovery_email: Mapped[str] = mapped_column(String(255), default="")
+    partner2_recovery_email: Mapped[str] = mapped_column(String(255), default="")
+    partner1_recovery_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    partner2_recovery_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    partner1_backup_code_hash: Mapped[str] = mapped_column(String(64), default="")
+    partner2_backup_code_hash: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RecoveryOtp(Base):
+    __tablename__ = "recovery_otps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    otp_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    partner_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RecoveryAuditLog(Base):
+    __tablename__ = "recovery_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    couple_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    detail: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

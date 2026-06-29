@@ -95,6 +95,9 @@ export default function Landing() {
                 <Button variant="secondary" size="lg" onClick={() => setMode('join')}>
                   <KeyRound size={18} /> Join with invite code
                 </Button>
+                <Button variant="ghost" size="lg" onClick={() => navigate('/recover')}>
+                  Recover our space
+                </Button>
                 <p className="text-center text-xs text-muted">
                   One space per couple. Your memories never mix with anyone else&apos;s.
                 </p>

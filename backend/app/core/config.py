@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     # Apple Web Push rejects mailto:@localhost and *.local — use a real https URL or email.
     vapid_claims_email: str = "https://forever-somewhere-web.onrender.com"
+    resend_api_key: str = ""
+    recovery_from_email: str = "Forever Somewhere <onboarding@resend.dev>"
+    recovery_otp_ttl_minutes: int = 15
 
     def cors_origin_list(self) -> list[str]:
         origins = []

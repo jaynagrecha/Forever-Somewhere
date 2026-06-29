@@ -32,7 +32,14 @@ export function setCoupleTokenGetter(fn) {
   coupleTokenGetter = fn;
 }
 
-const PUBLIC_PATHS = ['/api/health', '/api/couples/create', '/api/couples/join'];
+const PUBLIC_PATHS = [
+  '/api/health',
+  '/api/couples/create',
+  '/api/couples/join',
+  '/api/recovery/start',
+  '/api/recovery/complete',
+  '/api/recovery/backup',
+];
 
 async function request(path, options = {}) {
   const apiBase = getApiBase();
@@ -68,6 +75,21 @@ export const api = {
   getCoupleMe: () => request('/api/couples/me'),
   logoutCouple: () => request('/api/couples/logout', { method: 'POST' }),
   refreshCoupleToken: () => request('/api/couples/refresh-token', { method: 'POST' }),
+
+  getRecoverySettings: () => request('/api/recovery/settings'),
+  requestRecoveryEmailVerify: (data) =>
+    request('/api/recovery/email/request', { method: 'POST', body: JSON.stringify(data) }),
+  confirmRecoveryEmailVerify: (data) =>
+    request('/api/recovery/email/confirm', { method: 'POST', body: JSON.stringify(data) }),
+  generateRecoveryBackupCode: (data) =>
+    request('/api/recovery/backup/generate', { method: 'POST', body: JSON.stringify(data) }),
+  recoveryStart: (data) =>
+    request('/api/recovery/start', { method: 'POST', body: JSON.stringify(data) }),
+  recoveryComplete: (data) =>
+    request('/api/recovery/complete', { method: 'POST', body: JSON.stringify(data) }),
+  recoveryBackup: (data) =>
+    request('/api/recovery/backup', { method: 'POST', body: JSON.stringify(data) }),
+
   getStats: () => request('/api/stats'),
   getOnThisDay: () => request('/api/memories/on-this-day'),
   getInsights: () => request('/api/insights'),

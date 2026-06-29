@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import Recover from './pages/Recover';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Moments from './pages/Moments';
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/recover" element={<Recover />} />
       <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
       <Route path="/moments" element={<Guard><Moments /></Guard>} />
       <Route path="/somewhere" element={<Guard><Somewhere /></Guard>} />
