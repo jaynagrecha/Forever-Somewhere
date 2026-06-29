@@ -8,3 +8,5 @@ python-multipart==0.0.26
 pillow==12.2.0
 pywebpush==2.0.3
 py-vapid==1.9.2
+fastembed==0.6.0
+numpy==2.2.4

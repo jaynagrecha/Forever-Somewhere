@@ -159,6 +159,10 @@ def run_migrations() -> None:
             _add_col(conn, "time_capsules", "capsule_type", "capsule_type VARCHAR(32) DEFAULT 'standard'", cols)
             _add_col(conn, "time_capsules", "year_index", "year_index INTEGER", cols)
 
+        if "desire_slips" in tables:
+            cols = {c["name"] for c in inspector.get_columns("desire_slips")}
+            _add_col(conn, "desire_slips", "body_embedding_json", "body_embedding_json TEXT DEFAULT ''", cols)
+
         if "love_notes" in tables:
             cols = {c["name"] for c in inspector.get_columns("love_notes")}
             _add_col(conn, "love_notes", "voice_url", "voice_url VARCHAR(512) DEFAULT ''", cols)

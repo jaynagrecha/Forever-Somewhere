@@ -288,6 +288,7 @@ class DesireSlip(Base):
     slip_type: Mapped[str] = mapped_column(String(32), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     chip: Mapped[str] = mapped_column(String(64), default="")
+    body_embedding_json: Mapped[str] = mapped_column(Text, default="")
     anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     matched_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     revealed: Mapped[bool] = mapped_column(Boolean, default=False)

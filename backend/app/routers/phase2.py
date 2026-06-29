@@ -35,6 +35,14 @@ from app.models.entities import (
     VaultEntry,
 )
 from app.services.activity import log_activity
+from app.services.slip_match import (
+    ensure_embedding,
+    find_best_partner_match,
+    is_mutual_best_match,
+    pair_similarity,
+    pair_still_matches,
+    warm_embedding_model,
+)
 
 router = APIRouter(prefix="/api/phase2", tags=["phase2"])
 
@@ -437,32 +445,54 @@ def _link_slip_match(row: DesireSlip, match: DesireSlip) -> None:
 
 
 def _try_match_slip(db: Session, couple_id: int, row: DesireSlip) -> None:
-    if row.slip_type not in ("curious", "into"):
+    if row.matched_id or row.slip_type not in ("curious", "into"):
         return
-    chip = (row.chip or "").strip().lower()
-    base = (
+    ensure_embedding(row)
+    candidates = (
         db.query(DesireSlip)
         .filter(
             DesireSlip.couple_id == couple_id,
-            DesireSlip.author != row.author,
-            DesireSlip.slip_type.in_(("curious", "into")),
             DesireSlip.matched_id.is_(None),
+            DesireSlip.id != row.id,
+            DesireSlip.slip_type.in_(("curious", "into")),
         )
-        .order_by(DesireSlip.created_at.asc())
+        .all()
     )
-    if chip:
-        partner = base.filter(DesireSlip.chip == chip).first()
-    else:
-        partner = base.filter(
-            DesireSlip.slip_type == row.slip_type,
-            (DesireSlip.chip == "") | (DesireSlip.chip.is_(None)),
-        ).first()
-    if partner:
-        _link_slip_match(row, partner)
+    if not candidates:
+        return
+    pool = candidates + [row]
+    partner, _score = find_best_partner_match(row, candidates)
+    if not partner or not is_mutual_best_match(row, partner, pool):
+        return
+    ensure_embedding(partner)
+    _link_slip_match(row, partner)
+
+
+def _validate_existing_matches(db: Session, couple_id: int) -> None:
+    """Unlink old tag-only pairs that don't mean the same thing."""
+    rows = (
+        db.query(DesireSlip)
+        .filter(DesireSlip.couple_id == couple_id, DesireSlip.matched_id.isnot(None))
+        .all()
+    )
+    by_id = {r.id: r for r in rows}
+    seen: set[int] = set()
+    for row in rows:
+        if row.id in seen or not row.matched_id:
+            continue
+        other = by_id.get(row.matched_id)
+        if not other:
+            row.matched_id = None
+            continue
+        seen.add(row.id)
+        seen.add(other.id)
+        if not pair_still_matches(row, other):
+            row.matched_id = None
+            other.matched_id = None
 
 
 def _repair_unmatched_slips(db: Session, couple_id: int) -> None:
-    """Pair legacy slips that share type but were never matched (no chip required)."""
+    """Semantic re-match for slips still waiting for a partner."""
     rows = (
         db.query(DesireSlip)
         .filter(DesireSlip.couple_id == couple_id, DesireSlip.matched_id.is_(None))
@@ -470,9 +500,28 @@ def _repair_unmatched_slips(db: Session, couple_id: int) -> None:
         .all()
     )
     for row in rows:
-        if row.matched_id or row.slip_type not in ("curious", "into"):
-            continue
         _try_match_slip(db, couple_id, row)
+
+
+def _match_score(row: DesireSlip, by_id: dict[int, DesireSlip]) -> float | None:
+    if not row.matched_id:
+        return None
+    other = by_id.get(row.matched_id)
+    if not other:
+        return None
+    return round(
+        pair_similarity(
+            row.slip_type,
+            row.chip or "",
+            row.body,
+            ensure_embedding(row),
+            other.slip_type,
+            other.chip or "",
+            other.body,
+            ensure_embedding(other),
+        ),
+        2,
+    )
 
 
 @router.get("/desire-jar")
@@ -482,6 +531,7 @@ def list_desire_slips(
     db: Session = Depends(get_db),
 ) -> dict:
     _require_after_dark(couple, db)
+    _validate_existing_matches(db, couple.id)
     _repair_unmatched_slips(db, couple.id)
     db.commit()
     rows = (
@@ -494,9 +544,11 @@ def list_desire_slips(
         if r.anonymous or not r.revealed:
             r.anonymous = False
             r.revealed = True
+    by_id = {r.id: r for r in rows}
     out = []
     for r in rows:
         is_mine = r.author == viewer
+        score = _match_score(r, by_id)
         out.append(
             {
                 "id": r.id,
@@ -505,6 +557,7 @@ def list_desire_slips(
                 "chip": r.chip or "",
                 "author": r.author,
                 "matched_id": r.matched_id,
+                "match_score": score,
                 "is_mine": is_mine,
                 "created_at": utc_iso(r.created_at),
             }
@@ -531,6 +584,7 @@ def add_desire_slip(
     )
     db.add(row)
     db.flush()
+    ensure_embedding(row)
 
     _try_match_slip(db, couple.id, row)
 

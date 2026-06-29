@@ -192,7 +192,7 @@ export default function AfterDark() {
   return (
     <PageShell title="🌙 After Dark" subtitle="Private · consent-first · just the two of you.">
       <SectionHint>
-        Desire jar, wild deck, vault, and energy — private to the two of you. Every jar note shows who wrote it.
+        Desire jar reads the meaning of what you write — same idea in different words can show as aligned. Every note shows who wrote it.
       </SectionHint>
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -215,7 +215,7 @@ export default function AfterDark() {
                 <option value="hard_no">Hard no (boundary)</option>
               </Select>
               <p className="mb-2 text-sm text-muted">
-                Optional topic — if you both pick the same one (e.g. playful), your slips show as matched.
+                Optional topic tag. Matching reads what you wrote — same idea in different words still pairs you.
               </p>
               <p className="mb-2 text-xs text-muted">Topics:</p>
               <div className="flex flex-wrap gap-2">
@@ -240,7 +240,7 @@ export default function AfterDark() {
                 <p className="text-xs uppercase text-muted">
                   {s.slip_type}
                   {s.chip ? ` · ${s.chip}` : ''}
-                  {s.matched_id ? ' · you both picked this' : ''}
+                  {s.matched_id ? ` · aligned${s.match_score != null ? ` (${Math.round(s.match_score * 100)}%)` : ''}` : ''}
                 </p>
                 <p className="mt-2 whitespace-pre-wrap">{s.body}</p>
                 <p className="mt-2 text-xs text-muted">— {s.author}</p>

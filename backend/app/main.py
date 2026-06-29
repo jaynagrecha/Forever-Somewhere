@@ -10,6 +10,7 @@ from app.core.database import Base, engine
 from app.core.migrate import run_migrations
 from app.core.vapid_store import ensure_vapid_keys
 from app.routers import couples, extras, features, memories, misc, phase2, prompts, push, recovery, romance, trip_pins
+from app.services.slip_match import warm_embedding_model
 from app.static_files import INDEX_HTML, frontend_available, mount_frontend
 
 Base.metadata.create_all(bind=engine)
@@ -17,6 +18,11 @@ run_migrations()
 ensure_vapid_keys()
 
 app = FastAPI(title=settings.app_name)
+
+
+@app.on_event("startup")
+def _startup_warm_embeddings() -> None:
+    warm_embedding_model()
 
 app.add_middleware(
     CORSMiddleware,
