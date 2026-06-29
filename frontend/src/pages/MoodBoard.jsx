@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth, useMyName, usePartnerPicker } from '../context/AuthContext';
 import { compressImage } from '../utils/compressImage';
 import { resolveMediaUrl } from '../utils/media';
+import SeasonColorPicker from '../components/SeasonColorPicker';
 import { formatPeriodLabel, groupEntriesByPeriod, isCurrentPeriod } from '../utils/season';
 
 const emptyForm = {
@@ -264,7 +265,29 @@ export default function MoodBoard() {
           A title, a colour, and any photo — memory, selfie, meme, screenshot — that fits how you feel.
         </p>
 
-        <form onSubmit={handleSave} className="mt-6 space-y-4">
+        <form onSubmit={handleSave} className="mt-6 space-y-5">
+          {(form.title.trim() || form.color) && (
+            <div
+              className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
+              style={{ borderTopColor: form.color, borderTopWidth: 4 }}
+            >
+              <div className="p-4">
+                <p className="text-xs uppercase tracking-widest text-muted">Preview before you share</p>
+                <p className="mt-1 font-display text-xl leading-snug">{form.title.trim() || 'Your title here'}</p>
+                {form.description.trim() && (
+                  <p className="mt-2 line-clamp-3 text-sm text-muted">{form.description}</p>
+                )}
+              </div>
+              {form.photo_url && (
+                <img
+                  src={resolveMediaUrl(form.photo_url)}
+                  alt=""
+                  className="max-h-40 w-full object-cover opacity-90"
+                />
+              )}
+            </div>
+          )}
+
           <Input
             label="Title"
             value={form.title}
@@ -277,21 +300,17 @@ export default function MoodBoard() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="What this week/month has felt like for you…"
           />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="Accent colour"
-              type="color"
-              value={form.color}
-              onChange={(e) => setForm({ ...form, color: e.target.value })}
-            />
-            <div>
-              <span className="mb-2 block text-sm text-muted">Photo</span>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition hover:border-accent/30">
-                <ImagePlus size={18} />
-                {uploading ? 'Uploading…' : form.photo_url ? 'Change photo' : 'Upload photo or meme'}
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} disabled={uploading} />
-              </label>
-            </div>
+          <SeasonColorPicker
+            value={form.color}
+            onChange={(color) => setForm((f) => ({ ...f, color }))}
+          />
+          <div>
+            <span className="mb-2 block text-sm text-muted">Photo</span>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition hover:border-accent/30">
+              <ImagePlus size={18} />
+              {uploading ? 'Uploading…' : form.photo_url ? 'Change photo' : 'Upload photo or meme'}
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} disabled={uploading} />
+            </label>
           </div>
 
           {form.photo_url && (
